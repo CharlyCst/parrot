@@ -1,5 +1,8 @@
+use serde_json;
 use std::fs;
-use std::path::{ Path, PathBuf};
+use std::path::{Path};
+
+mod config;
 
 const PARROT_PATH: &'static str = "parrot";
 const SNAPSHOT_PATH: &'static str = "snapshots";
@@ -29,16 +32,27 @@ pub fn initialize<P: AsRef<Path>>(path: P) -> Result<(), ()> {
     // Create and initialize main folder.
     let snapshots_path = path.join(SNAPSHOT_PATH);
     let config_path = path.join(CONFIG_PATH);
-    if let Err(err) =  fs::create_dir(&path) {
+    let config_value = config::get_default_config();
+    if let Err(err) = fs::create_dir(&path) {
         println!("An error occurred while creating a folder: {}", err);
         return Err(());
     }
-    if let Err(err) =  fs::create_dir(&snapshots_path) {
+    if let Err(err) = fs::create_dir(&snapshots_path) {
         println!("An error occurred while creating a folder: {}", err);
         return Err(());
     }
-    if let Err(err) =  fs::create_dir(&config_path) {
-        println!("An error occurred while creating the configuration file: {}", err);
+    let config_file = match fs::File::create(&config_path) {
+        Ok(file) => file,
+        Err(err) => {
+            println!(
+                "An error occurred while creating the configuration file: {}",
+                err
+            );
+            return Err(());
+        }
+    };
+    if let Err(err) = serde_json::to_writer(config_file, &config_value) {
+        println!("An error occurred while writting to config file: {}", err);
         return Err(());
     }
 

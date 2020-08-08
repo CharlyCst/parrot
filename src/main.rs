@@ -1,8 +1,17 @@
+use cli::Command;
 use std::path::PathBuf;
 
+mod cli;
 mod data;
 
 fn main() {
-    println!("{}", data::hello_world());
-    data::initialize(PathBuf::from("."));
+    let config = cli::parse();
+    match config.cmd {
+        Command::Init {} => {
+            data::initialize(PathBuf::from(config.path)).unwrap();
+        }
+        Command::Add { .. } => (),
+        Command::Run {} => (),
+    }
 }
+
