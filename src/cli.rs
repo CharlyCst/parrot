@@ -3,14 +3,20 @@ extern crate clap;
 use clap::Clap;
 use std::path::PathBuf;
 
-/// A CLI snapshot tool.
 #[derive(Clap)]
 #[clap(version = "0.1.0")]
+#[clap(verbatim_doc_comment)]
+/// A CLI snapshot tool.
+/// |
+/// |      (o>   
+/// |______(()___
+/// |      ||    
+/// |
 pub struct Config {
     #[clap(subcommand)]
     pub cmd: Command,
 
-    /// Base path.
+    /// Base path
     #[clap(default_value = ".", parse(from_os_str))]
     pub path: PathBuf,
 }
