@@ -1,14 +1,17 @@
 use cli::Command;
-use std::path::PathBuf;
+use error::unwrap_log;
 
 mod cli;
 mod data;
+mod error;
 
 fn main() {
     let config = cli::parse();
+    let data = unwrap_log(data::DataManager::new(config.path));
     match config.cmd {
         Command::Init {} => {
-            data::initialize(PathBuf::from(config.path)).unwrap();
+            unwrap_log(data.initialize());
+            println!("Parrot has been initialized.")
         }
         Command::Add { .. } => (),
         Command::Run {} => (),
