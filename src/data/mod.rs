@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::error::Error;
+use crate::error::{wrap, Error};
 
 mod config;
 mod snapshots;
@@ -41,32 +41,22 @@ impl DataManager {
         })
     }
 
-    pub fn initialize(&self) -> Result<(), Error> {
+    pub fn initialize(&mut self) -> Result<(), Error> {
         if self.path.exists() {
-            return Err(Error {
-                message: String::from("A parrot folder already exists."),
-                cause: None,
-            });
+            return Error::from_str("A parrot folder already exists.");
         }
-        if let Err(err) = fs::create_dir(&self.path) {
-            return Err(Error {
-                message: String::from("Unable to create a parrot folder."),
-                cause: Some(Box::new(err)),
-            });
-        }
-        if let Err(err) = self.config.write_empty() {
-            return Err(Error {
-                message: String::from("Unable to create config.json file."),
-                cause: Some(err),
-            });
-        }
-        if let Err(err) = self.snaps.create_empty() {
-            return Err(Error {
-                message: String::from("Unable to create a snapshots folder."),
-                cause: Some(err),
-            });
-        }
+        wrap(
+            fs::create_dir(&self.path),
+            "Unable to create a parrot folder.",
+        )?;
+        self.config.write_empty()?;
+        self.snaps.create_empty()?;
+        Ok(())
+    }
 
+    pub fn add_snapshot(&mut self, cmd: &str, name: &str, snap: &Vec<u8>) -> Result<(), Error> {
+        self.snaps.create(name, snap)?;
+        self.config.register_snap(cmd, name)?;
         Ok(())
     }
 }
