@@ -5,6 +5,7 @@ mod cli;
 mod cmd;
 mod data;
 mod error;
+mod term;
 
 fn main() {
     let config = cli::parse();
@@ -14,14 +15,22 @@ fn main() {
             unwrap_log(data.initialize());
             println!("Parrot has been initialized.")
         }
-        Command::Add { cmd, name } => {
+        Command::Add { cmd, name, yes } => {
             let snap = unwrap_log(cmd::execute(&cmd));
             let name = if let Some(name) = name {
                 name
             } else {
                 String::from("default")
             };
-            unwrap_log(data.add_snapshot(&cmd, &name, &snap.stdout));
+            let save = if yes {
+                true
+            } else {
+                term::color_box("Snapshot", &snap.stdout);
+                unwrap_log(term::binary_qestion("Save this snapshot?"))
+            };
+            if save {
+                unwrap_log(data.add_snapshot(&cmd, &name, &snap.stdout));
+            }
         }
         Command::Run {} => {
             let mut success = true;

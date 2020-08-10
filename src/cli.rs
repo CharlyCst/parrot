@@ -6,7 +6,7 @@ use std::path::PathBuf;
 #[derive(Clap)]
 #[clap(version = "0.1.0")]
 #[clap(verbatim_doc_comment)]
-/// A CLI snapshot tool.
+/// A colorful and chatty CLI snapshot tool.
 /// |
 /// |      (o>   
 /// |______(()___
@@ -17,29 +17,37 @@ pub struct Config {
     pub cmd: Command,
 
     /// Base path
-    #[clap(default_value = ".", parse(from_os_str))]
+    #[clap(short, long, default_value = ".", parse(from_os_str))]
     pub path: PathBuf,
+
+    /// Verbode mode
+    #[clap(short, long)]
+    pub verbose: bool,
 }
 
 #[derive(Clap)]
 pub enum Command {
-     /// Add a new snapshot for the given command.
+     /// Add a new snapshot for the given command
     Add {
-        /// The command to execute.
+        /// The command to execute
         cmd: String,
 
-        /// Optional name for the snapshot.
+        /// Optional name for the snapshot
         name: Option<String>,
+
+        /// Accept the snapshot
+        #[clap(short, long)]
+        yes: bool,
     },
 
-    /// Initialize Parrot.
+    /// Initialize Parrot
     Init {},
 
-    /// Run snapshot tests.
+    /// Run snapshot tests
     Run {},
 }
 
-/// Parse CLI args, may terminate the program.
+/// Parse CLI args, may terminate the program
 pub fn parse() -> Config {
     Config::parse()
 }
