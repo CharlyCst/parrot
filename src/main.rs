@@ -23,6 +23,21 @@ fn main() {
             };
             unwrap_log(data.add_snapshot(&cmd, &name, &snap.stdout));
         }
-        Command::Run {} => (),
+        Command::Run {} => {
+            let mut success = true;
+            let snaps = unwrap_log(data.get_all_snapshots());
+            for snap in &snaps {
+                let result = unwrap_log(cmd::execute(&snap.cmd));
+                if result.stdout != snap.content {
+                    success = false;
+                    println!("Test failed for '{}'.", &snap.cmd);
+                }
+            }
+            if success {
+                println!("Success !");
+            } else {
+                println!("Failure...");
+            }
+        }
     }
 }

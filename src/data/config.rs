@@ -6,13 +6,13 @@ use crate::error::{wrap, Error};
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
-    snapshots: Vec<Snapshot>,
+    pub snapshots: Vec<Metadata>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Snapshot {
-    cmd: String,
-    snap: String,
+pub struct Metadata {
+    pub cmd: String,
+    pub snap: String,
 }
 
 pub struct ConfigManager {
@@ -42,7 +42,7 @@ impl ConfigManager {
     /// Register a new snapshot with its associated command.
     pub fn register_snap(&mut self, cmd: &str, snap_name: &str) -> Result<(), Error> {
         let config = self.get_config()?;
-        let snap = Snapshot {
+        let snap = Metadata {
             cmd: cmd.to_owned(),
             snap: snap_name.to_owned(),
         };
@@ -52,7 +52,7 @@ impl ConfigManager {
     }
 
     /// Return the configuration.
-    fn get_config(&mut self) -> Result<&mut Config, Error> {
+    pub fn get_config(&mut self) -> Result<&mut Config, Error> {
         if let Some(ref mut config) = self.config {
             Ok(config)
         } else {

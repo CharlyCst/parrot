@@ -10,6 +10,12 @@ const PARROT_PATH: &'static str = "parrot";
 const SNAPSHOT_PATH: &'static str = "snapshots";
 const CONFIG_PATH: &'static str = "config.json";
 
+pub struct Snapshot {
+    pub content: Vec<u8>,
+    pub name: String,
+    pub cmd: String,
+}
+
 pub struct DataManager {
     config: config::ConfigManager,
     snaps: snapshots::SnapshotsManager,
@@ -58,5 +64,21 @@ impl DataManager {
         self.snaps.create(name, snap)?;
         self.config.register_snap(cmd, name)?;
         Ok(())
+    }
+
+    /// Return a copy of all the snapshots and their metadata.
+    pub fn get_all_snapshots(&mut self) -> Result<Vec<Snapshot>, Error> {
+        let mut snapshots = Vec::new();
+        let config = self.config.get_config()?;
+        for snap in &config.snapshots {
+            let content = self.snaps.get(&snap.snap)?;
+            snapshots.push(Snapshot {
+                content,
+                name: snap.snap.clone(),
+                cmd: snap.cmd.clone(),
+            })
+        }
+
+        Ok(snapshots)
     }
 }
