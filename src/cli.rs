@@ -33,6 +33,7 @@ pub enum Command {
         cmd: String,
 
         /// Optional name for the snapshot
+        #[clap(short, long)]
         name: Option<String>,
 
         /// Accept the snapshot
