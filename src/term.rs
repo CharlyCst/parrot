@@ -1,7 +1,7 @@
-use std::io::{stdout, stdin, Write};
+use std::io::{stdin, stdout, Write};
 use termion::color;
 
-use crate::error::{Error, wrap};
+use crate::error::{wrap, Error};
 
 /// Ask a binary question to the user. Return true for yes, false for no.
 pub fn binary_qestion(question: &str) -> Result<bool, Error> {
@@ -14,12 +14,23 @@ pub fn binary_qestion(question: &str) -> Result<bool, Error> {
         wrap(stdin.read_line(&mut buffer), "Undable to read from stdin")?;
         let buffer = buffer.trim().to_lowercase();
         if buffer == "yes" || buffer == "ye" || buffer == "y" {
-            return Ok(true)
+            return Ok(true);
         }
-        if buffer =="no" || buffer == "n" {
-            return Ok(false)
+        if buffer == "no" || buffer == "n" {
+            return Ok(false);
         }
     }
+}
+
+/// Ask a question to the user, return a string.
+pub fn string_question(question: &str) -> Result<String, Error> {
+    let stdin = stdin();
+    let mut stdout = stdout();
+    let mut buffer = String::new();
+    print!("{} ", question);
+    wrap(stdout.flush(), "Unable to write to stdout")?;
+    wrap(stdin.read_line(&mut buffer), "Undable to read from stdin")?;
+    Ok(buffer)
 }
 
 /// Draw a colored box with a title and a given content.
@@ -52,4 +63,3 @@ pub fn color_box(title: &str, content: &Vec<u8>) {
     .unwrap();
     stdout.flush().unwrap();
 }
-
