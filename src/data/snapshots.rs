@@ -2,6 +2,7 @@ use std::fs;
 use std::io::prelude::{Read, Write};
 use std::path::PathBuf;
 
+use super::{Snapshot, SnapshotData};
 use crate::error::{wrap, Error};
 
 const FILE_EXTENSION: &'static str = ".txt";
@@ -28,15 +29,13 @@ impl SnapshotsManager {
     }
 
     /// Create a new snapshot file, abort if the file already exists.
-    pub fn create(&self, name: &str, snap: &Vec<u8>) -> Result<(), Error> {
-        let mut name = name.to_owned();
-        name.push_str(FILE_EXTENSION);
-        let path = self.path.join(name);
-        if path.exists() {
-            return Error::from_str("A snapshot with that name already exists.");
+    pub fn create(&self, snap: &Snapshot) -> Result<(), Error> {
+        if let Some(stdout) = &snap.stdout {
+            self.write_snapshot(stdout)?;
         }
-        let mut file = wrap(fs::File::create(path), "Failed to create a snapshot file")?;
-        wrap(file.write_all(&snap), "Faile to write down the snapshot")?;
+        if let Some(stderr) = &snap.stderr {
+            self.write_snapshot(stderr)?;
+        }
         Ok(())
     }
 
@@ -55,5 +54,21 @@ impl SnapshotsManager {
             &format!("Failed to open snapshot {}.", name),
         )?;
         Ok(snap)
+    }
+
+    /// Write a single snapshot.
+    fn write_snapshot(&self, snap: &SnapshotData) -> Result<(), Error> {
+        let mut path = snap.path.to_owned();
+        path.push_str(FILE_EXTENSION);
+        let path = self.path.join(path);
+        if path.exists() {
+            return Error::from_str("A snapshot with that name already exists.");
+        }
+        let mut file = wrap(fs::File::create(path), "Failed to create a snapshot file")?;
+        wrap(
+            file.write_all(&snap.body),
+            "Faile to write down the snapshot",
+        )?;
+        Ok(())
     }
 }

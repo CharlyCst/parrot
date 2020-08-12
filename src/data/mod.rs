@@ -11,13 +11,20 @@ const SNAPSHOT_PATH: &'static str = "snapshots";
 const METADATA_PATH: &'static str = "metadata.json";
 
 pub struct Snapshot {
-    pub content: Vec<u8>,
-    pub name: String,
+    pub exit_code: Option<i32>,
+    pub stderr: Option<SnapshotData>,
+    pub stdout: Option<SnapshotData>,
     pub cmd: String,
+    pub name: String,
+}
+
+pub struct SnapshotData {
+    pub path: String,
+    pub body: Vec<u8>,
 }
 
 pub struct DataManager {
-    metadata: metadata::ConfigManager,
+    metadata: metadata::MetadataManager,
     snaps: snapshots::SnapshotsManager,
     path: PathBuf,
 }
@@ -41,7 +48,7 @@ impl DataManager {
         let metadata_path = path.join(METADATA_PATH);
         let snapshots_path = path.join(SNAPSHOT_PATH);
         Ok(DataManager {
-            metadata: metadata::ConfigManager::new(metadata_path),
+            metadata: metadata::MetadataManager::new(metadata_path),
             snaps: snapshots::SnapshotsManager::new(snapshots_path),
             path,
         })
@@ -60,22 +67,39 @@ impl DataManager {
         Ok(())
     }
 
-    pub fn add_snapshot(&mut self, cmd: &str, name: &str, snap: &Vec<u8>) -> Result<(), Error> {
-        self.snaps.create(name, snap)?;
-        self.metadata.register_snap(cmd, name)?;
+    pub fn add_snapshot(&mut self, snap: &Snapshot) -> Result<(), Error> {
+        self.snaps.create(snap)?;
+        self.metadata.register_snap(snap)?;
         Ok(())
     }
 
     /// Return a copy of all the snapshots and their metadata.
     pub fn get_all_snapshots(&mut self) -> Result<Vec<Snapshot>, Error> {
         let mut snapshots = Vec::new();
-        let metadata = self.metadata.get_metadata()?;
+        let metadata = self.metadata.get_metadatas()?;
         for snap in &metadata.snapshots {
-            let content = self.snaps.get(&snap.snap)?;
+            let stdout = if let Some(path) = snap.stdout.clone() {
+                Some(SnapshotData {
+                    body: self.snaps.get(&path)?,
+                    path,
+                })
+            } else {
+                None
+            };
+            let stderr = if let Some(path) = snap.stderr.clone() {
+                Some(SnapshotData {
+                    body: self.snaps.get(&path)?,
+                    path,
+                })
+            } else {
+                None
+            };
             snapshots.push(Snapshot {
-                content,
-                name: snap.snap.clone(),
+                name: snap.name.clone(),
                 cmd: snap.cmd.clone(),
+                exit_code: snap.exit_code.clone(),
+                stdout,
+                stderr,
             })
         }
 
