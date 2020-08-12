@@ -12,6 +12,7 @@ mod cmd;
 mod data;
 mod error;
 mod term;
+mod editor;
 
 fn main() {
     let config = cli::parse();
@@ -32,7 +33,7 @@ fn main() {
 
 /// Handles add subcomand.
 fn add(cmd: &str, name: &Option<String>, yes: bool, path: PathBuf) {
-    let mut data = unwrap_log(data::DataManager::new(path));
+    let mut data = unwrap_log(data::DataManager::new(&path));
     let snap = unwrap_log(cmd::execute(&cmd));
     let save = if yes {
         true
@@ -40,6 +41,7 @@ fn add(cmd: &str, name: &Option<String>, yes: bool, path: PathBuf) {
         term::color_box("Snapshot", &snap.stdout);
         unwrap_log(term::binary_qestion("Save this snapshot?"))
     };
+    unwrap_log(editor::open_empty(&path));
     if save {
         // Get snapshot name
         let name = if let Some(name) = name {
