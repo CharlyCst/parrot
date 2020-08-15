@@ -16,6 +16,8 @@ pub struct Snapshot {
     pub stdout: Option<SnapshotData>,
     pub cmd: String,
     pub name: String,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
 }
 
 pub struct SnapshotData {
@@ -96,6 +98,8 @@ impl DataManager {
             };
             snapshots.push(Snapshot {
                 name: snap.name.clone(),
+                description: snap.description.clone(),
+                tags: snap.tags.clone(),
                 cmd: snap.cmd.clone(),
                 exit_code: snap.exit_code.clone(),
                 stdout,

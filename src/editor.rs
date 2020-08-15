@@ -10,15 +10,19 @@ use crate::error::{wrap, Error};
 
 const FILE_NAME: &'static str = "PARROT_SNAPSHOT";
 
+pub struct EditResult {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
+}
+
 /// Open an empty description in the user's favorite editor.
-pub fn open_empty<P: AsRef<Path>>(path: P) -> Result<(), Error> {
-    let content = open(path, "", "")?;
-    println!("File content:\n{}", content); // TODO: remove that
-    Ok(())
+pub fn open_empty<P: AsRef<Path>>(path: P, cmd: &str) -> Result<EditResult, Error> {
+    open(path, "", "", cmd)
 }
 
 /// Open a new description file in the user's favorite editor.
-fn open<P: AsRef<Path>>(path: P, name: &str, description: &str) -> Result<String, Error> {
+fn open<P: AsRef<Path>>(path: P, name: &str, description: &str, cmd: &str) -> Result<EditResult, Error> {
     let editor = var("EDITOR").unwrap();
     let mut file_path = path.as_ref().to_owned();
     file_path.push(PARROT_PATH);
@@ -36,8 +40,10 @@ fn open<P: AsRef<Path>>(path: P, name: &str, description: &str) -> Result<String
              // The first line will be used as snapshot name, the following as description.\n\
              // If the first line is blank, a random name will be used.\n\
              // Hastag in the description (#example) will serve as tag for the snapshot.\n\
-             // Characters after '//' are ignored.\n",
-            name, description
+             // Characters after '//' are ignored.\n\
+             //\n\
+             // Test command: {}",
+            name, description, cmd
         ),
         "Could not write description file",
     )?;
@@ -61,25 +67,21 @@ fn open<P: AsRef<Path>>(path: P, name: &str, description: &str) -> Result<String
     )?;
     let _ = remove_file(&file_path);
 
-    let (title, description, tags) = parse_file(content);
-    println!("Title: {}", title);
-    println!("Description: {}", description);
-    println!("Tags: {:?}", tags);
-    Ok(title)
+    Ok(parse_file(content))
 }
 
 /// Parse the content of the description file and return both title, description
 /// and tags.
-fn parse_file(content: String) -> (String, String, Vec<String>) {
+fn parse_file(content: String) -> EditResult {
     let lines = content.split('\n');
-    let mut title = String::from("");
+    let mut name = String::from("");
     let mut description = String::from("");
     let mut tags = Vec::new();
     let mut is_title = true;
     for line in lines {
         let (line, has_comment)  = strip_comment(line);
         if is_title {
-            title.push_str(line.trim());
+            name.push_str(line.trim());
             is_title = false;
             continue;
         }
@@ -95,10 +97,24 @@ fn parse_file(content: String) -> (String, String, Vec<String>) {
 
     let re = Regex::new(r"#[a-zA-Z0-9_-]+").unwrap();
     for tag in re.captures_iter(&description) {
-        tags.push(tag[0].to_owned());
+        tags.push(tag[0][1..].to_owned());
     }
-
-    (title, description, tags)
+    
+    let name = if name.len() > 0 {
+        Some(name)
+    } else {
+        None
+    };
+    let description = if description.len() > 0 {
+        Some(description)
+    } else {
+        None
+    };
+    EditResult {
+        name,
+        description,
+        tags
+    }
 }
 
 /// Return a string slice stripped form the eventual comment.

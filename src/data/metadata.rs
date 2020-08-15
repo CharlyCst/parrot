@@ -14,6 +14,8 @@ pub struct Metadatas {
 pub struct Metadata {
     pub cmd: String,
     pub name: String,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
     pub exit_code: Option<i32>,
     pub stdout: Option<String>,
     pub stderr: Option<String>,
@@ -46,15 +48,17 @@ impl MetadataManager {
     /// Register a new snapshot with its associated command.
     pub fn register_snap(&mut self, snap: &Snapshot) -> Result<(), Error> {
         let metadata = self.get_metadatas()?;
-        let name = snap.name.clone();
         let cmd = snap.cmd.clone();
+        let name = snap.name.clone();
+        let description = snap.description.clone();
+        let tags = snap.tags.clone();
         let exit_code = snap.exit_code.clone();
         let stdout = if let Some(stdout) = &snap.stdout {
             Some(stdout.path.clone())
         } else {
             None
         };
-        let stderr = if let Some(stderr) = &snap.stdout {
+        let stderr = if let Some(stderr) = &snap.stderr {
             Some(stderr.path.clone())
         } else {
             None
@@ -62,6 +66,8 @@ impl MetadataManager {
         let snap = Metadata {
             cmd,
             name,
+            description,
+            tags,
             exit_code,
             stdout,
             stderr,
@@ -101,7 +107,7 @@ impl MetadataManager {
             "Failed to create metadata.json.",
         )?;
         wrap(
-            serde_json::to_writer(metadata_file, &self.metadatas),
+            serde_json::to_writer_pretty(metadata_file, &self.metadatas),
             "Failed to write metadata.json.",
         )?;
         Ok(())

@@ -23,7 +23,7 @@ pub fn binary_qestion(question: &str) -> Result<bool, Error> {
 }
 
 /// Ask a question to the user, return a string.
-pub fn string_question(question: &str) -> Result<String, Error> {
+pub fn _string_question(question: &str) -> Result<String, Error> {
     let stdin = stdin();
     let mut stdout = stdout();
     let mut buffer = String::new();
@@ -38,7 +38,7 @@ pub fn color_box(title: &str, content: &Vec<u8>) {
     let mut stdout = stdout();
     writeln!(
         stdout,
-        "{blue}{s:/<2}{green}{s:/<2}{yellow}{s:/<4}{red}{s:/<7}{reset} {title} {red}{s:/<7}{yellow}{s:/<4}{green}{s:/<2}{blue}{s:/<2}{reset}\n",
+        "{blue}{s:/<2}{green}{s:/<2}{yellow}{s:/<4}{red}{s:/<7}{reset} {title} {red}{s:/<7}{yellow}{s:/<4}{green}{s:/<2}{blue}{s:/<2}{reset}",
         s = "/",
         title = title,
         red = color::Fg(color::LightRed),
@@ -49,9 +49,13 @@ pub fn color_box(title: &str, content: &Vec<u8>) {
     )
     .unwrap();
     stdout.write_all(content).unwrap();
+    // If no line break at the end, add one
+    if *content.last().unwrap_or(&0x00) != 0x0a {
+        write!(stdout, "\n").unwrap();
+    }
     writeln!(
         stdout,
-        "\n{blue}{s:/<2}{green}{s:/<2}{yellow}{s:/<4}{red}{s:/<width$}{yellow}{s:/<4}{green}{s:/<2}{blue}{s:/<2}{reset}",
+        "{blue}{s:/<2}{green}{s:/<2}{yellow}{s:/<4}{red}{s:/<width$}{yellow}{s:/<4}{green}{s:/<2}{blue}{s:/<2}{reset}",
         s = "/",
         width = 16 + title.len(),
         red = color::Fg(color::LightRed),

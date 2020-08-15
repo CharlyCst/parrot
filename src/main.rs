@@ -10,9 +10,9 @@ use error::unwrap_log;
 mod cli;
 mod cmd;
 mod data;
+mod editor;
 mod error;
 mod term;
-mod editor;
 
 fn main() {
     let config = cli::parse();
@@ -41,26 +41,27 @@ fn add(cmd: &str, name: &Option<String>, yes: bool, path: PathBuf) {
         term::color_box("Snapshot", &snap.stdout);
         unwrap_log(term::binary_qestion("Save this snapshot?"))
     };
-    unwrap_log(editor::open_empty(&path));
     if save {
         // Get snapshot name
+        let mut description = None;
+        let mut tags = Vec::new();
         let name = if let Some(name) = name {
             name.to_owned()
         } else {
             if yes {
                 get_random_name()
             } else {
-                let mut name =
-                    unwrap_log(term::string_question("Snapshot name? (empty for random):"));
-                name = normalize_name(&name);
-                if name.len() == 0 {
-                    get_random_name()
+                let edit_result = unwrap_log(editor::open_empty(&path, cmd));
+                description = edit_result.description;
+                tags = edit_result.tags;
+                if let Some(name) = edit_result.name {
+                    normalize_name(&name)
                 } else {
-                    name
+                    get_random_name()
                 }
             }
         };
-        let snapshot = to_snapshot(name, cmd.to_owned(), snap);
+        let snapshot = to_snapshot(name, description, tags, cmd.to_owned(), snap);
         unwrap_log(data.add_snapshot(&snapshot));
     }
 }
@@ -85,13 +86,21 @@ fn run(path: PathBuf) {
 }
 
 /// Creates a snapshot out of an execution result
-fn to_snapshot(name: String, cmd: String, snap: Output) -> Snapshot {
+fn to_snapshot(
+    name: String,
+    description: Option<String>,
+    tags: Vec<String>,
+    cmd: String,
+    snap: Output,
+) -> Snapshot {
     let exit_code = snap.status.code();
     let stdout = to_snapshot_data(snap.stdout, &name, ".out");
     let stderr = to_snapshot_data(snap.stderr, &name, ".err");
     Snapshot {
         cmd,
         name,
+        description,
+        tags,
         exit_code,
         stdout,
         stderr,
