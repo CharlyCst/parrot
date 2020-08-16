@@ -64,13 +64,13 @@ impl Context {
     }
 
     /// Handles run subcommand.
-    pub fn run(&mut self) {
+    /// Returns true in case of success, false otherwise.
+    pub fn run(&mut self) -> bool {
         let mut success = true;
         let mut stdout = stdout();
         let empty_body = Vec::new();
         let snaps = unwrap_log(self.data.get_all_snapshots());
         for snap in &snaps {
-            let mut close_separator = false;
             let result = unwrap_log(cmd::execute(&snap.cmd));
             let old_stdout = if let Some(ref stdout) = snap.stdout {
                 &stdout.body
@@ -82,26 +82,34 @@ impl Context {
             } else {
                 &empty_body
             };
+            let stdout_eq = &result.stdout == old_stdout;
+            let stderr_eq = &result.stderr == old_stderr;
+            let code_eq = snap.exit_code == result.status.code();
+            let failed = !stdout_eq || !stderr_eq || !code_eq;
+            // Draw test summary
+            if failed {
+                term::title_separator("info", 2, &mut stdout);
+                term::snap_summary(&snap.name, snap.description.as_ref(), &snap.cmd, &mut stdout);
+            }
             if &result.stdout != old_stdout {
-                close_separator = true;
-                term::title_separator("stdout", &mut stdout);
+                term::title_separator("stdout", 0, &mut stdout);
                 term::write_diff(old_stdout, &result.stdout, &mut stdout);
                 success = false;
             }
             if &result.stderr != old_stderr {
-                close_separator = true;
-                term::title_separator("stderr", &mut stdout);
+                term::title_separator("stderr", 0, &mut stdout);
                 term::write_diff(old_stderr, &result.stderr, &mut stdout);
             }
-            if close_separator {
+            if failed {
                 term::separator(6, &mut stdout);
             }
-            println!("Test {} failed.", &snap.name);
         }
         if success {
-            println!("Success !");
+            term::success(&mut stdout);
+            true
         } else {
-            println!("Failure...");
+            term::failure(&mut stdout);
+            false
         }
     }
 }

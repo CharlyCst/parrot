@@ -1,4 +1,5 @@
 use cli::Command;
+use std::process::exit;
 use error::unwrap_log;
 
 mod cli;
@@ -21,6 +22,12 @@ fn main() {
             ref name,
             yes,
         } => context.add(cmd, name, yes),
-        Command::Run {} => context.run(),
+        Command::Run {} => {
+            if context.run() {
+                exit(0);
+            } else {
+                exit(1);
+            }
+        }
     }
 }
