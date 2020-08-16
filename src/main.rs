@@ -11,17 +11,16 @@ mod term;
 
 fn main() {
     let config = cli::parse();
+    let mut context = unwrap_log(driver::Context::new(config.path));
     match config.cmd {
         Command::Init {} => {
-            let mut data = unwrap_log(data::DataManager::new(config.path));
-            unwrap_log(data.initialize());
-            println!("Parrot has been initialized.")
+            context.init();
         }
         Command::Add {
             ref cmd,
             ref name,
             yes,
-        } => driver::add(cmd, name, yes, config.path),
-        Command::Run {} => driver::run(config.path),
+        } => context.add(cmd, name, yes),
+        Command::Run {} => context.run(),
     }
 }
