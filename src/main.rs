@@ -10,6 +10,7 @@ use error::unwrap_log;
 mod cli;
 mod cmd;
 mod data;
+mod diff;
 mod editor;
 mod error;
 mod term;
@@ -71,12 +72,12 @@ fn run(path: PathBuf) {
     let mut data = unwrap_log(data::DataManager::new(path));
     let mut success = true;
     let snaps = unwrap_log(data.get_all_snapshots());
-    for snap in &snaps {
+    for snap in &snaps { // TODO: handle stderr and exit_code
         let result = unwrap_log(cmd::execute(&snap.cmd));
-        // if result.stdout != snap.stdout{
-        //     success = false;
-        //     println!("Test failed for '{}'.", &snap.cmd);
-        // }
+        if &result.stdout != &snap.stdout.as_ref().unwrap().body {
+            success = false;
+            println!("Test {} failed.", &snap.name);
+        }
     }
     if success {
         println!("Success !");
