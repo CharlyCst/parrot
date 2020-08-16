@@ -3,6 +3,10 @@ use termion::color;
 
 use crate::error::{wrap, Error};
 
+mod diff;
+
+pub use diff::write_diff;
+
 /// Ask a binary question to the user. Return true for yes, false for no.
 pub fn binary_qestion(question: &str) -> Result<bool, Error> {
     let stdin = stdin();
@@ -34,10 +38,21 @@ pub fn _string_question(question: &str) -> Result<String, Error> {
 }
 
 /// Draw a colored box with a title and a given content.
-pub fn color_box(title: &str, content: &Vec<u8>) {
-    let mut stdout = stdout();
+pub fn color_box<B: Write>(title: &str, content: &Vec<u8>, mut buffer: &mut B) {
+    title_separator(title, &mut buffer);    
+    buffer.write_all(content).unwrap();
+    // If no line break at the end, add one
+    if *content.last().unwrap_or(&0x00) != 0x0a {
+        write!(buffer, "\n").unwrap();
+    }
+    separator(title.len(), &mut buffer);    
+    buffer.flush().unwrap();
+}
+
+/// Write a separator featuring a title.
+pub fn title_separator<B: Write>(title: &str, buffer: &mut B) {
     writeln!(
-        stdout,
+        buffer,
         "{blue}{s:/<2}{green}{s:/<2}{yellow}{s:/<4}{red}{s:/<7}{reset} {title} {red}{s:/<7}{yellow}{s:/<4}{green}{s:/<2}{blue}{s:/<2}{reset}",
         s = "/",
         title = title,
@@ -48,16 +63,16 @@ pub fn color_box(title: &str, content: &Vec<u8>) {
         reset = color::Fg(color::Reset)
     )
     .unwrap();
-    stdout.write_all(content).unwrap();
-    // If no line break at the end, add one
-    if *content.last().unwrap_or(&0x00) != 0x0a {
-        write!(stdout, "\n").unwrap();
-    }
+}
+
+/// Writes a separator, the `extra_width` parameter allow to match the width 
+/// of a title separator by passing the title length.
+pub fn separator<B: Write>(extra_width: usize, buffer: &mut B) {
     writeln!(
-        stdout,
+        buffer,
         "{blue}{s:/<2}{green}{s:/<2}{yellow}{s:/<4}{red}{s:/<width$}{yellow}{s:/<4}{green}{s:/<2}{blue}{s:/<2}{reset}",
         s = "/",
-        width = 16 + title.len(),
+        width = 16 + extra_width,
         red = color::Fg(color::LightRed),
         yellow = color::Fg(color::LightYellow),
         green = color::Fg(color::LightGreen),
@@ -65,5 +80,4 @@ pub fn color_box(title: &str, content: &Vec<u8>) {
         reset = color::Fg(color::Reset)
     )
     .unwrap();
-    stdout.flush().unwrap();
 }

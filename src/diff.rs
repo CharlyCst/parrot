@@ -7,7 +7,7 @@ enum Node {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum DiffLine<'a> {
+pub enum DiffLine<'a> {
     Keep(&'a [u8]),
     Delete(&'a [u8]),
     Insert(&'a [u8]),
@@ -15,7 +15,7 @@ enum DiffLine<'a> {
 
 // Heavily inspired by https://github.com/tamuhey/seqdiff/blob/master/src/lib.rs.
 /// Returns the shortest edit script (or diff) between two slices of bytes slices.
-fn get_diff<'a>(old: &[&'a [u8]], new: &[&'a [u8]]) -> Vec<DiffLine<'a>> {
+pub fn get_diff<'a>(old: &[&'a [u8]], new: &[&'a [u8]]) -> Vec<DiffLine<'a>> {
     let n = old.len();
     let m = new.len();
     let bound = n + m;

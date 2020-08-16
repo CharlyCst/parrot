@@ -2,6 +2,7 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use std::path::PathBuf;
 use std::process::Output;
+use std::io::stdout;
 
 use cli::Command;
 use data::{Snapshot, SnapshotData};
@@ -39,7 +40,7 @@ fn add(cmd: &str, name: &Option<String>, yes: bool, path: PathBuf) {
     let save = if yes {
         true
     } else {
-        term::color_box("Snapshot", &snap.stdout);
+        term::color_box("Snapshot", &snap.stdout, &mut stdout());
         unwrap_log(term::binary_qestion("Save this snapshot?"))
     };
     if save {
@@ -71,13 +72,37 @@ fn add(cmd: &str, name: &Option<String>, yes: bool, path: PathBuf) {
 fn run(path: PathBuf) {
     let mut data = unwrap_log(data::DataManager::new(path));
     let mut success = true;
+    let mut stdout = stdout();
+    let empty_body = Vec::new();
     let snaps = unwrap_log(data.get_all_snapshots());
-    for snap in &snaps { // TODO: handle stderr and exit_code
+    for snap in &snaps {
+        let mut close_separator = false;
         let result = unwrap_log(cmd::execute(&snap.cmd));
-        if &result.stdout != &snap.stdout.as_ref().unwrap().body {
+        let old_stdout = if let Some(ref stdout) = snap.stdout {
+            &stdout.body
+        } else {
+            &empty_body
+        };
+        let old_stderr = if let Some(ref stderr) = snap.stderr {
+            &stderr.body
+        } else {
+            &empty_body
+        };
+        if &result.stdout != old_stdout {
+            close_separator = true;
+            term::title_separator("stdout", &mut stdout);
+            term::write_diff(old_stdout, &result.stdout, &mut stdout);
             success = false;
-            println!("Test {} failed.", &snap.name);
         }
+        if &result.stderr != old_stderr {
+            close_separator = true;
+            term::title_separator("stderr", &mut stdout);
+            term::write_diff(old_stderr, &result.stderr, &mut stdout);
+        }
+        if close_separator {
+            term::separator(6, &mut stdout);
+        }
+        println!("Test {} failed.", &snap.name);
     }
     if success {
         println!("Success !");
