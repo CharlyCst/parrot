@@ -14,20 +14,23 @@ fn main() {
     let config = cli::parse();
     let mut context = unwrap_log(driver::Context::new(config.path));
     match config.cmd {
-        Command::Init {} => {
+        Some(Command::Init {}) => {
             context.init();
         }
-        Command::Add {
+        Some(Command::Add {
             ref cmd,
             ref name,
             yes,
-        } => context.add(cmd, name, yes),
-        Command::Run {} => {
+        }) => context.add(cmd, name, yes),
+        Some(Command::Run {}) => {
             if context.run() {
                 exit(0);
             } else {
                 exit(1);
             }
+        }
+        None => {
+            context.repl();
         }
     }
 }

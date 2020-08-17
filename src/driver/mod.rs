@@ -10,6 +10,9 @@ use util::*;
 
 mod cmd;
 mod util;
+mod repl;
+
+pub use repl::{View, Filter};
 
 pub struct Context {
     path: PathBuf,
@@ -89,7 +92,12 @@ impl Context {
             // Draw test summary
             if failed {
                 term::title_separator("info", 2, &mut stdout);
-                term::snap_summary(&snap.name, snap.description.as_ref(), &snap.cmd, &mut stdout);
+                term::snap_summary(
+                    &snap.name,
+                    snap.description.as_ref(),
+                    &snap.cmd,
+                    &mut stdout,
+                );
             }
             if &result.stdout != old_stdout {
                 term::title_separator("stdout", 0, &mut stdout);
@@ -111,5 +119,13 @@ impl Context {
             term::failure(&mut stdout);
             false
         }
+    }
+
+    /// Starts the REPL.
+    pub fn repl(&mut self) {
+        let snapshots = unwrap_log(self.data.get_all_snapshots());
+        let view = repl::View::new(snapshots);
+        let mut stdout = stdout();
+        term::repl(&view, &mut stdout);
     }
 }

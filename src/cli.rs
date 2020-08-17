@@ -14,7 +14,7 @@ use std::path::PathBuf;
 /// |
 pub struct Config {
     #[clap(subcommand)]
-    pub cmd: Command,
+    pub cmd: Option<Command>,
 
     /// Base path
     #[clap(short, long, default_value = ".", parse(from_os_str))]

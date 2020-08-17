@@ -4,8 +4,10 @@ use termion::{color, style};
 use crate::error::{wrap, Error};
 
 mod diff;
+mod repl;
 
 pub use diff::write_diff;
+pub use repl::repl;
 
 /// Ask a binary question to the user. Return true for yes, false for no.
 pub fn binary_qestion(question: &str) -> Result<bool, Error> {
