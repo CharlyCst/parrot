@@ -1,18 +1,19 @@
-use std::io::stdout;
+use std::io::{stdin, stdout};
 use std::path::PathBuf;
 
 use crate::data::{DataManager, Snapshot, SnapshotData};
 use crate::editor;
 use crate::error::{unwrap_log, Error};
 use crate::term;
+use crate::term::Input;
 
 use util::*;
 
 mod cmd;
-mod util;
 mod repl;
+mod util;
 
-pub use repl::{View, Filter};
+pub use repl::{Filter, View};
 
 pub struct Context {
     path: PathBuf,
@@ -124,8 +125,16 @@ impl Context {
     /// Starts the REPL.
     pub fn repl(&mut self) {
         let snapshots = unwrap_log(self.data.get_all_snapshots());
-        let view = repl::View::new(snapshots);
-        let mut stdout = stdout();
-        term::repl(&view, &mut stdout);
+        let mut view = repl::View::new(snapshots);
+        let stdout = stdout();
+        let stdin = stdin();
+        let mut repl = term::Repl::new(stdin, stdout);
+        loop {
+            match repl.run(&view) {
+                Input::Up => view.up(),
+                Input::Down => view.down(),
+                Input::Quit => break,
+            }
+        }
     }
 }
