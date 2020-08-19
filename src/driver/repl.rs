@@ -7,7 +7,6 @@ pub enum Filter {
 /// Represents a view of the snapshots after filters have been applied.
 pub struct View {
     data: Vec<Snapshot>,
-    filter: Filter,
     /// Number of items visible after filtering
     pub nb_items: usize,
     /// Height of the view window
@@ -24,7 +23,6 @@ impl View {
         let n = data.len();
         View {
             data,
-            filter: Filter::Passthrough,
             window: (0, std::cmp::min(height, n) - 1),
             height,
             cursor: 0,

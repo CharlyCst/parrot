@@ -12,36 +12,66 @@ pub enum Input {
     Up,
     Down,
     Quit,
+    Command(String),
 }
 
 pub struct Repl {
     /// Using raw mode stdout
     pub stdout: RawTerminal<Stdout>,
     stdin: Keys<Stdin>,
+    input: String,
 }
 
 impl Repl {
-    /// Displays the REPL interface.
+    /// Initialize the REPL internal state.
     pub fn new(stdin: Stdin, stdout: Stdout) -> Repl {
-        let stdout = stdout.into_raw_mode().unwrap();
+        let mut stdout = stdout.into_raw_mode().unwrap();
         let stdin = stdin.keys();
-        Repl { stdout, stdin }
+        let input = String::from("");
+        write!(stdout, "{}", cursor::Save).unwrap();
+        Repl {
+            stdout,
+            stdin,
+            input,
+        }
     }
 
+    /// Run the REPL and return control once a command has been received.
     pub fn run(&mut self, view: &View) -> Input {
-        write!(self.stdout, "{}{}", clear::BeforeCursor, cursor::Goto(1, 1)).unwrap();
-        self.display_list(view);
-        self.display_input();
-        self.stdout.flush().unwrap();
-        for key in &mut self.stdin {
-            match key.unwrap() {
+        self.render(view);
+        loop {
+            let key = match self.stdin.next() {
+                Some(key) => key.unwrap(),
+                None => return Input::Quit,
+            };
+            match key {
                 Key::Down => return Input::Down,
                 Key::Up => return Input::Up,
                 Key::Esc => return Input::Quit,
+                Key::Delete | Key::Backspace => {
+                    self.input.pop();
+                    self.render(view);
+                }
+                Key::Char('\n') => {
+                    let mut command = String::new();
+                    std::mem::swap(&mut self.input, &mut command);
+                    return Input::Command(command);
+                }
+                Key::Char(c) => {
+                    self.input.push(c);
+                    self.render(view);
+                }
                 _ => (),
             }
         }
-        Input::Quit
+    }
+
+    /// Displays the REPL.
+    pub fn render(&mut self, view: &View) {
+        write!(self.stdout, "{}{}", cursor::Restore, clear::AfterCursor).unwrap();
+        self.display_list(view);
+        self.display_input();
+        self.stdout.flush().unwrap();
     }
 
     /// Displays the REPL snapshot list.
@@ -88,8 +118,8 @@ impl Repl {
         let clear_bold = style::Reset;
         write!(
             self.stdout,
-            "{}{}>{} {}",
-            bold, blue, clear_blue, clear_bold
+            "{}{}>{} {}{}",
+            bold, blue, clear_blue, self.input, clear_bold
         )
         .unwrap();
     }
