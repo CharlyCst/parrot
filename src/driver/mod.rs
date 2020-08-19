@@ -135,7 +135,7 @@ impl Context {
                 Input::Up => view.up(),
                 Input::Down => view.down(),
                 Input::Quit => break,
-                Input::Command(cmd) => (),
+                Input::Command(cmd) => view.apply_filter(Filter::Tag(cmd)),
             }
         }
     }

@@ -97,7 +97,7 @@ impl DataManager {
         if let Some(ref mut snaps) = self.snaps {
             Ok(snaps)
         } else {
-            self.load();
+            self.load()?;
             Ok(self.snaps.as_mut().unwrap())
         }
     }
