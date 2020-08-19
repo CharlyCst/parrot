@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use super::Snapshot;
 use crate::error::{wrap, Error};
@@ -23,91 +24,68 @@ pub struct Metadata {
 
 pub struct MetadataManager {
     path: PathBuf,
-    metadatas: Option<Metadatas>,
 }
 
 impl MetadataManager {
     /// Initialize a new MetadataManager.
     pub fn new(confg_path: PathBuf) -> MetadataManager {
-        MetadataManager {
-            path: confg_path,
-            metadatas: None,
-        }
+        MetadataManager { path: confg_path }
     }
 
     /// Write an empty metadata file.
     /// Be careful: this will override the current metadata if any.
     pub fn write_empty(&mut self) -> Result<(), Error> {
-        self.metadatas = Some(Metadatas {
+        let metadatas = Metadatas {
             snapshots: Vec::new(),
-        });
-        self.write()?;
+        };
+        self.write(&metadatas)?;
         Ok(())
     }
 
-    /// Register a new snapshot with its associated command.
-    pub fn register_snap(&mut self, snap: &Snapshot) -> Result<(), Error> {
-        let metadata = self.get_metadatas()?;
-        let cmd = snap.cmd.clone();
-        let name = snap.name.clone();
-        let description = snap.description.clone();
-        let tags = snap.tags.clone();
-        let exit_code = snap.exit_code.clone();
-        let stdout = if let Some(stdout) = &snap.stdout {
-            Some(stdout.path.clone())
-        } else {
-            None
-        };
-        let stderr = if let Some(stderr) = &snap.stderr {
-            Some(stderr.path.clone())
-        } else {
-            None
-        };
-        let snap = Metadata {
-            cmd,
-            name,
-            description,
-            tags,
-            exit_code,
-            stdout,
-            stderr,
-        };
-        metadata.snapshots.push(snap);
-        self.write()?;
-        Ok(())
-    }
-
-    /// Return the metadatas.
-    pub fn get_metadatas(&mut self) -> Result<&mut Metadatas, Error> {
-        if let Some(ref mut metadata) = self.metadatas {
-            Ok(metadata)
-        } else {
-            self.read()?;
-            let metadatas = self.metadatas.as_mut().unwrap();
-            Ok(metadatas)
+    /// Persists metadata to the file system from the list of snapshots.
+    pub fn persist(&self, snaps: &Vec<Rc<Snapshot>>) -> Result<(), Error> {
+        let mut snapshots = Vec::with_capacity(snaps.len());
+        for snap in snaps {
+            let stdout = match &snap.stdout {
+                Some(data) => Some(data.path.clone()),
+                None => None,
+            };
+            let stderr = match &snap.stderr {
+                Some(data) => Some(data.path.clone()),
+                None => None,
+            };
+            snapshots.push(Metadata {
+                cmd: snap.cmd.clone(),
+                name: snap.name.clone(),
+                description: snap.description.clone(),
+                tags: snap.tags.clone(),
+                exit_code: snap.exit_code.clone(),
+                stdout,
+                stderr,
+            })
         }
+        self.write(&Metadatas { snapshots })?;
+        Ok(())
     }
 
-    /// Read and cache the metadata from file.
-    /// self.metadata is Some after this function (expect in case of error).
-    fn read(&mut self) -> Result<(), Error> {
+    /// Reads and return metadatas from file system.
+    pub fn get_metadata(&self) -> Result<Metadatas, Error> {
         let file = wrap(fs::File::open(&self.path), "Could not fine metadata.json.")?;
         let metadatas = wrap(
             serde_json::from_reader(file),
             "Failed to parse metadata.json.",
         )?;
-        self.metadatas = Some(metadatas);
-        Ok(())
+        Ok(metadatas)
     }
 
-    /// Write the current metadata.
-    fn write(&self) -> Result<(), Error> {
+    /// Writes metadatas to the file system.
+    fn write(&self, metadatas: &Metadatas) -> Result<(), Error> {
         let metadata_file = wrap(
             fs::File::create(&self.path),
             "Failed to create metadata.json.",
         )?;
         wrap(
-            serde_json::to_writer_pretty(metadata_file, &self.metadatas),
+            serde_json::to_writer_pretty(metadata_file, metadatas),
             "Failed to write metadata.json.",
         )?;
         Ok(())

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::data::Snapshot;
 
 pub enum Filter {
@@ -6,7 +8,7 @@ pub enum Filter {
 
 /// Represents a view of the snapshots after filters have been applied.
 pub struct View {
-    data: Vec<Snapshot>,
+    data: Vec<Rc<Snapshot>>,
     /// Number of items visible after filtering
     pub nb_items: usize,
     /// Height of the view window
@@ -18,7 +20,7 @@ pub struct View {
 }
 
 impl View {
-    pub fn new(data: Vec<Snapshot>) -> View {
+    pub fn new(data: Vec<Rc<Snapshot>>) -> View {
         let height = 5;
         let n = data.len();
         View {
@@ -36,13 +38,8 @@ impl View {
     }
 
     /// Returns a view of the data.
-    pub fn get_view(&self) -> Vec<&Snapshot> {
-        let mut view = Vec::new();
-        for snap in self.data.iter() {
-            view.push(snap)
-        }
-
-        view
+    pub fn get_view(&self) -> &Vec<Rc<Snapshot>> {
+        &self.data
     }
 
     /// Moves the cursor up.
