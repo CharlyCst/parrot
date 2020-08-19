@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use crate::error::{wrap, Error};
 
@@ -26,8 +27,9 @@ pub struct SnapshotData {
 }
 
 pub struct DataManager {
-    metadata: metadata::MetadataManager,
-    snaps: snapshots::SnapshotsManager,
+    snaps: Option<Vec<Rc<Snapshot>>>,
+    metadata_manager: metadata::MetadataManager,
+    snap_manager: snapshots::SnapshotsManager,
     path: PathBuf,
 }
 
@@ -50,12 +52,14 @@ impl DataManager {
         let metadata_path = path.join(METADATA_PATH);
         let snapshots_path = path.join(SNAPSHOT_PATH);
         Ok(DataManager {
-            metadata: metadata::MetadataManager::new(metadata_path),
-            snaps: snapshots::SnapshotsManager::new(snapshots_path),
+            snaps: None,
+            metadata_manager: metadata::MetadataManager::new(metadata_path),
+            snap_manager: snapshots::SnapshotsManager::new(snapshots_path),
             path,
         })
     }
 
+    /// Initializes the Parrot storage folder.
     pub fn initialize(&mut self) -> Result<(), Error> {
         if self.path.exists() {
             return Error::from_str("A parrot folder already exists.");
@@ -64,49 +68,70 @@ impl DataManager {
             fs::create_dir(&self.path),
             "Unable to create a parrot folder.",
         )?;
-        self.metadata.write_empty()?;
-        self.snaps.create_empty()?;
+        self.metadata_manager.write_empty()?;
+        self.snap_manager.create_empty()?;
         Ok(())
     }
 
-    pub fn add_snapshot(&mut self, snap: &Snapshot) -> Result<(), Error> {
-        self.snaps.create(snap)?;
-        self.metadata.register_snap(snap)?;
+    pub fn add_snapshot(&mut self, snap: Rc<Snapshot>) -> Result<(), Error> {
+        self.snap_manager.create(&snap)?;
+        let snaps = self.get_snaps()?;
+        snaps.push(snap);
+        // Unwrap is safe because `self.get_snaps` caches snaps.
+        self.metadata_manager
+            .persist(self.snaps.as_ref().unwrap())?;
         Ok(())
     }
 
-    /// Return a copy of all the snapshots and their metadata.
-    pub fn get_all_snapshots(&mut self) -> Result<Vec<Snapshot>, Error> {
-        let mut snapshots = Vec::new();
-        let metadata = self.metadata.get_metadatas()?;
-        for snap in &metadata.snapshots {
-            let stdout = if let Some(path) = snap.stdout.clone() {
-                Some(SnapshotData {
-                    body: self.snaps.get(&path)?,
-                    path,
-                })
-            } else {
-                None
-            };
-            let stderr = if let Some(path) = snap.stderr.clone() {
-                Some(SnapshotData {
-                    body: self.snaps.get(&path)?,
-                    path,
-                })
-            } else {
-                None
-            };
-            snapshots.push(Snapshot {
-                name: snap.name.clone(),
-                description: snap.description.clone(),
-                tags: snap.tags.clone(),
-                cmd: snap.cmd.clone(),
-                exit_code: snap.exit_code.clone(),
-                stdout,
-                stderr,
-            })
+    /// Returns a vector of snapshot references.
+    pub fn get_all_snapshots(&mut self) -> Result<Vec<Rc<Snapshot>>, Error> {
+        let mut snaps = Vec::new();
+        for snap in self.get_snaps()? {
+            snaps.push(Rc::clone(snap));
         }
+        Ok(snaps)
+    }
 
-        Ok(snapshots)
+    /// Lazyly loads snapshots.
+    fn get_snaps(&mut self) -> Result<&mut Vec<Rc<Snapshot>>, Error> {
+        if let Some(ref mut snaps) = self.snaps {
+            Ok(snaps)
+        } else {
+            self.load()?;
+            Ok(self.snaps.as_mut().unwrap())
+        }
+    }
+
+    /// Loads all the snapshots from file system and cache them.
+    /// `self.snaps` is Some after this function.
+    fn load(&mut self) -> Result<(), Error> {
+        let metadatas = self.metadata_manager.get_metadata()?;
+        let mut snaps = Vec::with_capacity(metadatas.snapshots.len());
+        for snap in metadatas.snapshots {
+            let stdout = self.load_snapshot_body(snap.stdout)?;
+            let stderr = self.load_snapshot_body(snap.stderr)?;
+            snaps.push(Rc::new(Snapshot {
+                exit_code: snap.exit_code,
+                stderr,
+                stdout,
+                cmd: snap.cmd,
+                name: snap.name,
+                description: snap.description,
+                tags: snap.tags,
+            }))
+        }
+        self.snaps = Some(snaps);
+        Ok(())
+    }
+
+    /// Loads the body of a snapshot from an Option<body_path>.
+    fn load_snapshot_body(&self, path: Option<String>) -> Result<Option<SnapshotData>, Error> {
+        match path {
+            None => Ok(None),
+            Some(path) => Ok(Some(SnapshotData {
+                body: self.snap_manager.get(&path)?,
+                path: path,
+            })),
+        }
     }
 }

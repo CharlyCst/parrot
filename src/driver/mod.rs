@@ -1,5 +1,6 @@
 use std::io::{stdin, stdout};
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::data::{DataManager, Snapshot, SnapshotData};
 use crate::editor;
@@ -63,7 +64,7 @@ impl Context {
                 }
             };
             let snapshot = to_snapshot(name, description, tags, cmd.to_owned(), snap);
-            unwrap_log(self.data.add_snapshot(&snapshot));
+            unwrap_log(self.data.add_snapshot(Rc::new(snapshot)));
         }
     }
 
@@ -134,7 +135,7 @@ impl Context {
                 Input::Up => view.up(),
                 Input::Down => view.down(),
                 Input::Quit => break,
-                Input::Command(cmd) => (),
+                Input::Command(cmd) => view.apply_filter(Filter::Tag(cmd)),
             }
         }
     }

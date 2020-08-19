@@ -53,9 +53,11 @@ impl Repl {
                     self.render(view);
                 }
                 Key::Char('\n') => {
-                    let mut command = String::new();
-                    std::mem::swap(&mut self.input, &mut command);
-                    return Input::Command(command);
+                    if self.input.len() > 0 {
+                        let mut command = String::new();
+                        std::mem::swap(&mut self.input, &mut command);
+                        return Input::Command(command);
+                    }
                 }
                 Key::Char(c) => {
                     self.input.push(c);
@@ -85,7 +87,8 @@ impl Repl {
         let clear_bold = style::Reset;
 
         let (min, max) = view.window;
-        for (pos, snap) in view.get_view()[min..=max].iter().enumerate() {
+        let data = view.get_view();
+        for (pos, snap) in data[min..max].iter().enumerate() {
             if pos == view.cursor {
                 write!(
                     self.stdout,
@@ -97,14 +100,14 @@ impl Repl {
                 write!(self.stdout, "{} {}  {}\n\r", bg, clear_bg, snap.name).unwrap();
             };
         }
-        for _ in (max - min + 1)..view.height {
+        for _ in (max - min)..view.height {
             write!(self.stdout, "{} {}\n\r", bg, clear_bg).unwrap();
         }
         write!(
             self.stdout,
             "  {}{}/{}{}\n\r",
             color::Fg(color::White),
-            view.nb_items,
+            data.len(),
             view.get_total_item_count(),
             color::Fg(color::Reset)
         )
