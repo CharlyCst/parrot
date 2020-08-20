@@ -1,10 +1,7 @@
 use std::rc::Rc;
 
 use crate::data::Snapshot;
-
-pub enum Filter {
-    Tag(String),
-}
+use super::parser::Filter;
 
 /// Represents a view of the snapshots after filters have been applied.
 pub struct View {
@@ -75,13 +72,24 @@ impl View {
     pub fn apply_filter(&mut self, filter: Filter) {
         match filter {
             Filter::Tag(ref tag) => self.apply_tag_filter(tag),
+            Filter::Name(ref name) => self.apply_name_filter(name),
         }
+        self.update_window();
+    }
+
+    /// Remove any filter currently applied.
+    pub fn clear_filters(&mut self) {
+        let mut view = Vec::with_capacity(self.data.len());
+        for snap in &self.data {
+            view.push(Rc::clone(snap));
+        }
+        self.view = view;
         self.update_window();
     }
 
     /// Update the position of the window to create a sane state.
     fn update_window(&mut self) {
-        let (_, max) = self.window;
+        let (min, max) = self.window;
         let n = self.view.len();
         if max > n {
             let max = n;
@@ -95,14 +103,27 @@ impl View {
             if self.cursor > max {
                 self.cursor = if max == 0 { 0 } else { max - 1 };
             }
+        } else if max - min < self.height && max < n {
+            let max = std::cmp::min(min + self.height, n);
+            self.window = (min, max);
         }
     }
 
-    /// Applies a tag filter
+    /// Applies a tag filter.
     fn apply_tag_filter(&mut self, tag: &String) {
         let old_view = std::mem::replace(&mut self.view, Vec::new());
         for snap in old_view {
             if snap.tags.contains(tag) {
+                self.view.push(snap);
+            }
+        }
+    }
+
+    /// Applies a name filter.
+    fn apply_name_filter(&mut self, name: &String) {
+        let old_view = std::mem::replace(&mut self.view, Vec::new());
+        for snap in old_view {
+            if snap.name.contains(name) {
                 self.view.push(snap);
             }
         }

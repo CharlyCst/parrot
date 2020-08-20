@@ -8,14 +8,16 @@ use crate::error::{unwrap_log, Error};
 use crate::term;
 use crate::term::Input;
 
+use parser::Script;
 use util::*;
 
 mod cmd;
+mod parser;
 mod repl;
-mod util;
 mod scanner;
+mod util;
 
-pub use repl::{Filter, View};
+pub use repl::View;
 
 pub struct Context {
     path: PathBuf,
@@ -131,12 +133,27 @@ impl Context {
         let stdout = stdout();
         let stdin = stdin();
         let mut repl = term::Repl::new(stdin, stdout);
+        let mut scanner = scanner::Scanner::new();
+        let mut parser = parser::Parser::new();
         loop {
             match repl.run(&view) {
                 Input::Up => view.up(),
                 Input::Down => view.down(),
                 Input::Quit => break,
-                Input::Command(cmd) => view.apply_filter(Filter::Tag(cmd)),
+                Input::Command(cmd) => {
+                    let tokens = scanner.scan(cmd);
+                    match parser.parse(tokens) {
+                        Ok(script) => match script {
+                            Script::Quit => break,
+                            Script::Help => break, // TODO
+                            Script::Filter(args) => view.apply_filter(args),
+                            Script::Clear => view.clear_filters(),
+                            _ => break, // TODO
+                        },
+
+                        Err(error) => repl.writeln(&error.message),
+                    }
+                }
             }
         }
         repl.clear();

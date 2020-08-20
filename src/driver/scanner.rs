@@ -1,10 +1,5 @@
 use std::collections::HashMap;
 
-pub struct ParseError {
-    pub message: String,
-    pos: usize,
-}
-
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Token {
     Quit,
@@ -12,15 +7,18 @@ pub enum Token {
     Clear,
     Run,
     Show,
+    Help,
     Star,
-    Sha,
+    Sha(String),
     Lit(String),
+    EOS, // End of script
 }
 
 pub struct Scanner {
     keywords: HashMap<String, Token>,
     current: String,
     tokens: Vec<Token>,
+    is_sha: bool,
 }
 
 impl Scanner {
@@ -36,11 +34,13 @@ impl Scanner {
         map.insert(String::from("r"), Token::Run);
         map.insert(String::from("show"), Token::Show);
         map.insert(String::from("s"), Token::Show);
-
+        map.insert(String::from("help"), Token::Help);
+        map.insert(String::from("h"), Token::Help);
         Scanner {
             keywords: map,
             current: String::from(""),
             tokens: Vec::new(),
+            is_sha: false,
         }
     }
 
@@ -50,7 +50,7 @@ impl Scanner {
             match c {
                 '#' => {
                     self.tokenize();
-                    self.tokens.push(Token::Sha);
+                    self.is_sha = true;
                 }
                 '*' => {
                     self.tokenize();
@@ -66,16 +66,22 @@ impl Scanner {
             }
         }
         self.tokenize();
+        self.tokens.push(Token::EOS);
         std::mem::replace(&mut self.tokens, Vec::new())
     }
 
-    /// Convert the current characters to the equivalent token and push it 
+    /// Convert the current characters to the equivalent token and push it
     /// to the `tokens` queue.
     fn tokenize(&mut self) {
         if self.current.len() > 0 {
             let word = std::mem::replace(&mut self.current, String::new());
-            self.tokens.push(self.to_token(word));
+            if self.is_sha {
+                self.tokens.push(Token::Sha(word));
+            } else {
+                self.tokens.push(self.to_token(word));
+            }
         }
+        self.is_sha = false;
     }
 
     /// Converts a word to the corresponding token.
@@ -83,6 +89,23 @@ impl Scanner {
         match self.keywords.get(&token) {
             Some(keyword) => keyword.clone(),
             None => Token::Lit(token),
+        }
+    }
+}
+
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Star => write!(f, "*"),
+            Token::Run => write!(f, "run"),
+            Token::EOS => write!(f, "VOID"),
+            Token::Show => write!(f, "show"),
+            Token::Quit => write!(f, "quit"),
+            Token::Help => write!(f, "help"),
+            Token::Clear => write!(f, "clear"),
+            Token::Filter => write!(f, "filter"),
+            Token::Lit(s) => write!(f, "{}", s),
+            Token::Sha(t) => write!(f, "#{}", t),
         }
     }
 }
@@ -95,15 +118,15 @@ mod tests {
     fn scan() {
         let mut scanner = Scanner::new();
         assert_eq!(
-            vec![Token::Show, Token::Star],
+            vec![Token::Show, Token::Star, Token::EOS],
             scanner.scan(String::from("show    *"))
         );
         assert_eq!(
-            vec![Token::Quit, Token::Quit],
+            vec![Token::Quit, Token::Quit, Token::EOS],
             scanner.scan(String::from("q quit"))
         );
         assert_eq!(
-            vec![Token::Filter, Token::Sha, Token::Lit(String::from("test"))],
+            vec![Token::Filter, Token::Sha(String::from("test")), Token::EOS],
             scanner.scan(String::from("f #test"))
         );
     }

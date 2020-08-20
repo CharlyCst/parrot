@@ -38,8 +38,12 @@ impl Repl {
 
     /// Clears the REPL from the screen.
     pub fn clear(&mut self) {
-        write!(self.stdout, "!").unwrap();
         write!(self.stdout, "{}{}", cursor::Restore, clear::AfterCursor).unwrap();
+    }
+
+    /// Writes a line
+    pub fn writeln(&mut self, msg: &str) {
+        write!(self.stdout, "{}\n\r", msg).unwrap()
     }
 
     /// Runs the REPL and returns control once a command has been received.
