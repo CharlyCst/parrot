@@ -13,6 +13,7 @@ use util::*;
 mod cmd;
 mod repl;
 mod util;
+mod scanner;
 
 pub use repl::{Filter, View};
 
@@ -138,5 +139,6 @@ impl Context {
                 Input::Command(cmd) => view.apply_filter(Filter::Tag(cmd)),
             }
         }
+        repl.clear();
     }
 }

@@ -36,7 +36,13 @@ impl Repl {
         }
     }
 
-    /// Run the REPL and return control once a command has been received.
+    /// Clears the REPL from the screen.
+    pub fn clear(&mut self) {
+        write!(self.stdout, "!").unwrap();
+        write!(self.stdout, "{}{}", cursor::Restore, clear::AfterCursor).unwrap();
+    }
+
+    /// Runs the REPL and returns control once a command has been received.
     pub fn run(&mut self, view: &View) -> Input {
         self.render(view);
         loop {
@@ -69,8 +75,8 @@ impl Repl {
     }
 
     /// Displays the REPL.
-    pub fn render(&mut self, view: &View) {
-        write!(self.stdout, "{}{}", cursor::Restore, clear::AfterCursor).unwrap();
+    fn render(&mut self, view: &View) {
+        self.clear();
         self.display_list(view);
         self.display_input();
         self.stdout.flush().unwrap();
