@@ -5,6 +5,7 @@ use crate::error::{wrap, Error};
 
 mod diff;
 mod repl;
+pub mod help;
 
 pub use diff::write_diff;
 pub use repl::Input;

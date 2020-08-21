@@ -145,13 +145,20 @@ impl Context {
                     match parser.parse(tokens) {
                         Ok(script) => match script {
                             Script::Quit => break,
-                            Script::Help => break, // TODO
+                            Script::Help => {
+                                repl.clear();
+                                term::help::write_help(&mut repl.stdout);
+                                repl.checkpoint();
+                            }
                             Script::Filter(args) => view.apply_filter(args),
                             Script::Clear => view.clear_filters(),
                             _ => break, // TODO
                         },
-
-                        Err(error) => repl.writeln(&error.message),
+                        Err(error) => {
+                            repl.clear();
+                            repl.writeln(&error.message);
+                            repl.checkpoint()
+                        }
                     }
                 }
             }

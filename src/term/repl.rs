@@ -46,6 +46,12 @@ impl Repl {
         write!(self.stdout, "{}\n\r", msg).unwrap()
     }
 
+    /// Saves the cursor position, everything before the cursor will be 
+    /// preserved from any upcoming clear.
+    pub fn checkpoint(&mut self) {
+        write!(self.stdout, "{}", cursor::Save).unwrap();
+    }
+
     /// Runs the REPL and returns control once a command has been received.
     pub fn run(&mut self, view: &View) -> Input {
         self.render(view);
