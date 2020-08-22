@@ -42,6 +42,15 @@ impl View {
         &self.view
     }
 
+    /// Returns the selected item.
+    pub fn get_selected(&self) -> Option<&Snapshot> {
+        if self.view.len() == 0 {
+            None
+        } else {
+            Some(&self.view[self.window.0 + self.cursor])
+        }
+    }
+
     /// Moves the cursor up.
     pub fn up(&mut self) {
         let (min, _) = self.window;
