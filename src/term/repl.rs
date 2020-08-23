@@ -80,6 +80,12 @@ impl Repl {
                     self.input.push(c);
                     self.render(view);
                 }
+                Key::Ctrl('l') => {
+                    self.clear();
+                    write!(self.stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
+                    self.checkpoint();
+                    self.render(view);
+                }
                 _ => (),
             }
         }

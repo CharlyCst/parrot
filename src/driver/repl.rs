@@ -70,7 +70,7 @@ impl View {
         let (_, max) = self.window;
         if self.cursor + 1 < self.height && self.cursor + 1 < self.view.len() {
             self.cursor += 1;
-        } else if max + 1 < n {
+        } else if max < n {
             let max = max + 1;
             let min = std::cmp::max(0, max as i64 - self.height as i64) as usize;
             self.window = (min, max);
@@ -100,7 +100,7 @@ impl View {
     fn update_window(&mut self) {
         let (min, max) = self.window;
         let n = self.view.len();
-        if max > n {
+        if max >= n {
             let max = n;
             let min = if max < self.height {
                 0
@@ -109,7 +109,7 @@ impl View {
             };
             self.window = (min, max);
             // If there are less items than the position of the cursor
-            if self.cursor > max {
+            if self.cursor + 1 >= max {
                 self.cursor = if max == 0 { 0 } else { max - 1 };
             }
         } else if max - min < self.height && max < n {

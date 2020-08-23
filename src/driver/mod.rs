@@ -1,4 +1,4 @@
-use std::io::{stdin, stdout};
+use std::io::{stdin, stdout, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -8,7 +8,7 @@ use crate::error::{unwrap_log, Error};
 use crate::term;
 use crate::term::Input;
 
-use parser::Script;
+use parser::{Script, Target};
 use util::*;
 
 mod cmd;
@@ -74,50 +74,10 @@ impl Context {
     /// Handles run subcommand.
     /// Returns true in case of success, false otherwise.
     pub fn run(&mut self) -> bool {
-        let mut success = true;
         let mut stdout = stdout();
-        let empty_body = Vec::new();
-        let snaps = unwrap_log(self.data.get_all_snapshots());
-        for snap in &snaps {
-            let result = unwrap_log(cmd::execute(&snap.cmd));
-            let old_stdout = if let Some(ref stdout) = snap.stdout {
-                &stdout.body
-            } else {
-                &empty_body
-            };
-            let old_stderr = if let Some(ref stderr) = snap.stderr {
-                &stderr.body
-            } else {
-                &empty_body
-            };
-            let stdout_eq = &result.stdout == old_stdout;
-            let stderr_eq = &result.stderr == old_stderr;
-            let code_eq = snap.exit_code == result.status.code();
-            let failed = !stdout_eq || !stderr_eq || !code_eq;
-            // Draw test summary
-            if failed {
-                term::title_separator("info", 2, &mut stdout);
-                term::snap_summary(
-                    &snap.name,
-                    snap.description.as_ref(),
-                    &snap.cmd,
-                    &mut stdout,
-                );
-            }
-            if &result.stdout != old_stdout {
-                term::title_separator("stdout", 0, &mut stdout);
-                term::write_diff(old_stdout, &result.stdout, &mut stdout);
-                success = false;
-            }
-            if &result.stderr != old_stderr {
-                term::title_separator("stderr", 0, &mut stdout);
-                term::write_diff(old_stderr, &result.stderr, &mut stdout);
-            }
-            if failed {
-                term::separator(6, &mut stdout);
-            }
-        }
-        if success {
+        let snapshots = unwrap_log(self.data.get_all_snapshots());
+        let view = repl::View::new(snapshots);
+        if self.run_view(&view, &mut stdout) {
             term::success(&mut stdout);
             true
         } else {
@@ -152,6 +112,22 @@ impl Context {
                             }
                             Script::Filter(args) => view.apply_filter(args),
                             Script::Clear => view.clear_filters(),
+                            Script::Run(target) => {
+                                repl.clear();
+                                let success = match target {
+                                    Target::All => self.run_view(&view, &mut repl.stdout),
+                                    Target::Selected => match view.get_selected() {
+                                        Some(snap) => self.run_snapshot(snap, &mut repl.stdout),
+                                        None => true,
+                                    },
+                                };
+                                if success {
+                                    term::success(&mut repl.stdout);
+                                } else {
+                                    term::failure(&mut repl.stdout);
+                                }
+                                repl.checkpoint();
+                            }
                             _ => break, // TODO
                         },
                         Err(error) => {
@@ -164,5 +140,52 @@ impl Context {
             }
         }
         repl.clear();
+    }
+
+    /// Runs only commands from the given view.
+    fn run_view<B: Write>(&mut self, view: &View, buffer: &mut B) -> bool {
+        let mut success = true;
+        for snap in view.get_view() {
+            let pass = self.run_snapshot(snap, buffer);
+            success = success && pass;
+        }
+        success
+    }
+
+    /// Runs a single snapshot
+    fn run_snapshot<B: Write>(&self, snap: &Snapshot, buffer: &mut B) -> bool {
+        let empty_body = Vec::new();
+        let result = unwrap_log(cmd::execute(&snap.cmd));
+        let old_stdout = if let Some(ref stdout) = snap.stdout {
+            &stdout.body
+        } else {
+            &empty_body
+        };
+        let old_stderr = if let Some(ref stderr) = snap.stderr {
+            &stderr.body
+        } else {
+            &empty_body
+        };
+        let stdout_eq = &result.stdout == old_stdout;
+        let stderr_eq = &result.stderr == old_stderr;
+        let code_eq = snap.exit_code == result.status.code();
+        let failed = !stdout_eq || !stderr_eq || !code_eq;
+        // Draw test summary
+        if failed {
+            term::title_separator("info", 2, buffer);
+            term::snap_summary(&snap.name, snap.description.as_ref(), &snap.cmd, buffer);
+        }
+        if &result.stdout != old_stdout {
+            term::title_separator("stdout", 0, buffer);
+            term::write_diff(old_stdout, &result.stdout, buffer);
+        }
+        if &result.stderr != old_stderr {
+            term::title_separator("stderr", 0, buffer);
+            term::write_diff(old_stderr, &result.stderr, buffer);
+        }
+        if failed {
+            term::separator(6, buffer);
+        }
+        !failed
     }
 }
