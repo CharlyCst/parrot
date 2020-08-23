@@ -198,90 +198,49 @@ impl Repl {
 
         // Build the top border
         let n = name.len() + 2;
-        let top_border = if n < green_width {
-            let remainder = green_width - n;
-            format!("{b}┌{x:─<bw$}{rc} {bold}{}{rs} {g}{x:─<rm$}{y}{x:─<yw$}{r}{x:─<rw$}{y}{x:─<yw$}{g}{x:─<gw$}{b}{x:─<bw$}┐{rc}",
-                name,
-                x = "", // Placeholder
-                bold = bold,
-                rs = reset_style,
-                r = red,
-                y = yellow,
-                g = green,
-                b = blue,
-                rc = reset_color,
-                bw = blue_width,
-                gw = green_width,
-                yw = yellow_width,
-                rw = red_width,
-                rm = remainder,
-            )
-        } else if n < green_width + yellow_width {
-            let remainder = green_width + yellow_width - n;
-            format!("{b}┌{x:─<bw$}{rc} {bold}{}{rs} {y}{x:─<rm$}{r}{x:─<rw$}{y}{x:─<yw$}{g}{x:─<gw$}{b}{x:─<bw$}┐{rc}",
-                name,
-                x = "", // Placeholder
-                bold = bold,
-                rs = reset_style,
-                r = red,
-                y = yellow,
-                g = green,
-                b = blue,
-                rc = reset_color,
-                bw = blue_width,
-                gw = green_width,
-                yw = yellow_width,
-                rw = red_width,
-                rm = remainder,
-            )
-        } else if n < green_width + yellow_width + red_width {
-            let remainder = green_width + yellow_width + red_width - n;
-            format!("{b}┌{x:─<bw$}{rc} {bold}{}{rs} {r}{x:─<rm$}{y}{x:─<yw$}{g}{x:─<gw$}{b}{x:─<bw$}┐{rc}",
-                name,
-                x = "", // Placeholder
-                bold = bold,
-                rs = reset_style,
-                r = red,
-                y = yellow,
-                g = green,
-                b = blue,
-                rc = reset_color,
-                bw = blue_width,
-                gw = green_width,
-                yw = yellow_width,
-                rm = remainder,
-            )
-        } else if n < green_width + 2 * yellow_width + red_width {
-            let remainder = green_width + 2 * yellow_width + red_width - n;
-            format!(
-                "{b}┌{x:─<bw$}{rc} {bold}{}{rs} {y}{x:─<rm$}{g}{x:─<gw$}{b}{x:─<bw$}┐{rc}",
-                name,
-                x = "", // Placeholder
-                bold = bold,
-                rs = reset_style,
-                y = yellow,
-                g = green,
-                b = blue,
-                rc = reset_color,
-                bw = blue_width,
-                gw = green_width,
-                rm = remainder,
-            )
+        let first_green_width;
+        let mut first_yellow_width = yellow_width;
+        let mut first_red_width = red_width;
+        let mut second_yellow_width = yellow_width;
+        let mut second_green_width = green_width;
+        if n >= green_width {
+            first_green_width = 0;
+            if n >= green_width + yellow_width {
+                first_yellow_width = 0;
+                if n >= green_width + yellow_width + red_width {
+                    first_red_width = 0;
+                    if n >= green_width + 2 * yellow_width + red_width {
+                        second_yellow_width = 0;
+                        second_green_width = 2 * green_width + 2 * yellow_width + red_width - n;
+                    } else {
+                        second_yellow_width = green_width + 2 * yellow_width + red_width - n;
+                    }
+                } else {
+                    first_red_width = green_width + yellow_width + red_width - n;
+                }
+            } else {
+                first_yellow_width = green_width + yellow_width - n;
+            }
         } else {
-            let remainder = 2 * green_width + 2 * yellow_width + red_width - n;
-            format!(
-                "{b}┌{x:─<bw$}{rc} {bold}{}{rs} {g}{x:─<rm$}{b}{x:─<bw$}┐{rc}",
-                name,
-                x = "", // Placeholder
-                bold = bold,
-                rs = reset_style,
-                g = green,
-                b = blue,
-                rc = reset_color,
-                bw = blue_width,
-                rm = remainder,
-            )
-        };
+            first_green_width = green_width - n;
+        }
+        let top_border = format!("{b}┌{x:─<bw$}{rc} {bold}{}{rs} {g}{x:─<fgw$}{y}{x:─<fyw$}{r}{x:─<frw$}{y}{x:─<syw$}{g}{x:─<sgw$}{b}{x:─<bw$}┐{rc}",
+            name,
+            x = "", // Placeholder
+            bold = bold,
+            rs = reset_style,
+            r = red,
+            y = yellow,
+            g = green,
+            b = blue,
+            rc = reset_color,
+            bw = blue_width,
+            fgw = first_green_width,
+            fyw = first_yellow_width,
+            frw = first_red_width,
+            syw = second_yellow_width,
+            sgw = second_green_width,
+        );
 
         // Write down the description box
         write!(
