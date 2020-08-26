@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use crate::data::Snapshot;
 use super::parser::Filter;
+use crate::data::Snapshot;
 
 /// Represents a view of the snapshots after filters have been applied.
 pub struct View {
@@ -32,11 +32,6 @@ impl View {
         }
     }
 
-    /// Returns the total number of items (not the count of visible items).
-    pub fn get_total_item_count(&self) -> usize {
-        self.data.len()
-    }
-
     /// Returns a view of the data.
     pub fn get_view(&self) -> &Vec<Rc<Snapshot>> {
         &self.view
@@ -61,6 +56,15 @@ impl View {
             let min = min - 1;
             let max = std::cmp::min(min + self.height, n);
             self.window = (min, max);
+        } else {
+            let n = self.view.len();
+            let h = self.height;
+            let max = n;
+            let min = if max < h { 0 } else { max - h };
+            self.window = (min, max);
+            if max > min {
+                self.cursor = max - min - 1;
+            }
         }
     }
 
@@ -74,6 +78,12 @@ impl View {
             let max = max + 1;
             let min = std::cmp::max(0, max as i64 - self.height as i64) as usize;
             self.window = (min, max);
+        } else {
+            let n = self.view.len();
+            let min = 0;
+            let max = std::cmp::min(n, self.height);
+            self.window = (min, max);
+            self.cursor = 0;
         }
     }
 

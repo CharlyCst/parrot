@@ -1,6 +1,7 @@
-use std::io::{Stdin, Stdout, Write};
+use std::io::{BufWriter, Stdin, Stdout, Write};
 use termion::clear;
 use termion::cursor;
+use termion::cursor::DetectCursorPos;
 use termion::event::Key;
 use termion::input::{Keys, TermRead};
 use termion::raw::{IntoRawMode, RawTerminal};
@@ -18,22 +19,25 @@ pub enum Input {
 
 pub struct Repl {
     /// Using raw mode stdout
-    pub stdout: RawTerminal<Stdout>,
+    pub stdout: RawTerminal<BufWriter<Stdout>>,
     stdin: Keys<Stdin>,
     input: String,
+    cursor_pos: (u16, u16),
 }
 
 impl Repl {
     /// Initialize the REPL internal state.
     pub fn new(stdin: Stdin, stdout: Stdout) -> Repl {
-        let mut stdout = stdout.into_raw_mode().unwrap();
+        let mut stdout = BufWriter::new(stdout).into_raw_mode().unwrap();
         let stdin = stdin.keys();
         let input = String::from("");
         write!(stdout, "{}", cursor::Save).unwrap();
+        let cursor_pos = stdout.cursor_pos().unwrap();
         Repl {
             stdout,
             stdin,
             input,
+            cursor_pos,
         }
     }
 
@@ -44,13 +48,16 @@ impl Repl {
 
     /// Writes a line
     pub fn writeln(&mut self, msg: &str) {
-        write!(self.stdout, "{}\n\r", msg).unwrap()
+        write!(self.stdout, "{}\n\r", msg).unwrap();
+        self.stdout.flush().unwrap();
     }
 
     /// Saves the cursor position, everything before the cursor will be
     /// preserved from any upcoming clear.
     pub fn checkpoint(&mut self) {
         write!(self.stdout, "{}", cursor::Save).unwrap();
+        let cursor_pos = self.stdout.cursor_pos().unwrap();
+        self.cursor_pos = cursor_pos;
     }
 
     /// Runs the REPL and returns control once a command has been received.
@@ -95,8 +102,12 @@ impl Repl {
     fn render(&mut self, view: &View) {
         self.clear();
         self.display_description_box(view);
+        let input_offset = self.display_input();
         self.display_list(view);
-        self.display_input();
+        let (x, y) = self.cursor_pos;
+        let y = y + 6;
+        let x = x + input_offset;
+        write!(self.stdout, "{}", cursor::Goto(x, y)).unwrap();
         self.stdout.flush().unwrap();
     }
 
@@ -124,21 +135,24 @@ impl Repl {
                 write!(self.stdout, "{} {}  {}\n\r", bg, clear_bg, snap.name).unwrap();
             };
         }
-        for _ in (max - min)..view.height {
-            write!(self.stdout, "{} {}\n\r", bg, clear_bg).unwrap();
-        }
+        let current = if data.len() == 0 {
+            0
+        } else {
+            min + view.cursor + 1
+        };
         write!(
             self.stdout,
-            "  {}{}/{}{}\n\r",
+            "  {}{}/{}{}",
             color::Fg(color::White),
+            current,
             data.len(),
-            view.get_total_item_count(),
             color::Fg(color::Reset)
         )
         .unwrap();
     }
 
-    fn display_input(&mut self) {
+    /// Displays the input, return the offset of the input line.
+    fn display_input(&mut self) -> u16 {
         let blue = color::Fg(color::LightBlue);
         let clear_blue = color::Fg(color::Reset);
         let bold = style::Bold;
@@ -149,6 +163,8 @@ impl Repl {
             bold, blue, clear_blue, self.input, clear_bold
         )
         .unwrap();
+        write!(self.stdout, "\n\r").unwrap();
+        2 + self.input.chars().count() as u16
     }
 
     fn display_description_box(&mut self, view: &View) {
