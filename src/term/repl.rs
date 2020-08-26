@@ -46,18 +46,18 @@ impl Repl {
         write!(self.stdout, "{}{}", cursor::Restore, clear::AfterCursor).unwrap();
     }
 
-    /// Writes a line
-    pub fn writeln(&mut self, msg: &str) {
-        write!(self.stdout, "{}\n\r", msg).unwrap();
+    /// Suspend terminal raw mode, stdout can be used normally until restored.
+    /// The repl should not be use while suspended.
+    pub fn suspend(&mut self) {
+        self.clear();
+        self.stdout.suspend_raw_mode().unwrap();
         self.stdout.flush().unwrap();
     }
 
-    /// Saves the cursor position, everything before the cursor will be
-    /// preserved from any upcoming clear.
-    pub fn checkpoint(&mut self) {
-        write!(self.stdout, "{}", cursor::Save).unwrap();
-        let cursor_pos = self.stdout.cursor_pos().unwrap();
-        self.cursor_pos = cursor_pos;
+    /// Restore terminal raw mode, the repl can be re-started safely.
+    pub fn restore(&mut self) {
+        self.stdout.activate_raw_mode().unwrap();
+        self.checkpoint();
     }
 
     /// Runs the REPL and returns control once a command has been received.
@@ -96,6 +96,14 @@ impl Repl {
                 _ => (),
             }
         }
+    }
+
+    /// Saves the cursor position, everything before the cursor will be
+    /// preserved from any upcoming clear.
+    fn checkpoint(&mut self) {
+        write!(self.stdout, "{}", cursor::Save).unwrap();
+        let cursor_pos = self.stdout.cursor_pos().unwrap();
+        self.cursor_pos = cursor_pos;
     }
 
     /// Displays the REPL.

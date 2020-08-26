@@ -1,3 +1,4 @@
+use std::io;
 use std::io::{stdin, stdout, Write};
 use termion::{color, style};
 
@@ -33,11 +34,7 @@ pub fn binary_qestion(question: &str) -> Result<bool, Error> {
 /// Draws a colored box with a title and a given content.
 pub fn color_box<B: Write>(title: &str, content: &Vec<u8>, mut buffer: &mut B) {
     title_separator(title, 0, &mut buffer);
-    buffer.write_all(content).unwrap();
-    // If no line break at the end, add one
-    if *content.last().unwrap_or(&0x00) != 0x0a {
-        write!(buffer, "\n\r").unwrap();
-    }
+    buffer.sanitized_write(content).unwrap();
     separator(title.len(), &mut buffer);
     buffer.flush().unwrap();
 }
@@ -114,4 +111,21 @@ pub fn separator<B: Write>(extra_width: usize, buffer: &mut B) {
         reset = color::Fg(color::Reset)
     )
     .unwrap();
+}
+
+/// Allow for sanatized write, which can safely be used in raw mode.
+pub trait SanitizerWriter: Write {
+    fn sanitized_write(&mut self, buf: &[u8]) -> io::Result<()>;
+}
+
+/// Sanitize the content of a source buffer and write its content to the
+/// destination buffer.
+impl<W: Write> SanitizerWriter for W {
+    fn sanitized_write(&mut self, buf: &[u8]) -> io::Result<()> {
+        for line in buf.split(|c| c == &b'\n') {
+            self.write_all(line)?;
+            self.write_all(&[b'\n', b'\r'])?;
+        }
+        Ok(())
+    }
 }

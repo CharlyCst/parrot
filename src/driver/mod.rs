@@ -6,7 +6,7 @@ use crate::data::{DataManager, Snapshot, SnapshotData};
 use crate::editor;
 use crate::error::{unwrap_log, Error};
 use crate::term;
-use crate::term::Input;
+use crate::term::{Input, SanitizerWriter};
 
 use parser::{Script, Target};
 use util::*;
@@ -106,14 +106,14 @@ impl Context {
                         Ok(script) => match script {
                             Script::Quit => break,
                             Script::Help => {
-                                repl.clear();
+                                repl.suspend();
                                 term::help::write_help(&mut repl.stdout);
-                                repl.checkpoint();
+                                repl.restore();
                             }
                             Script::Filter(args) => view.apply_filter(args),
                             Script::Clear => view.clear_filters(),
                             Script::Run(target) => {
-                                repl.clear();
+                                repl.suspend();
                                 let success = match target {
                                     Target::All => self.run_view(&view, &mut repl.stdout),
                                     Target::Selected => match view.get_selected() {
@@ -126,14 +126,28 @@ impl Context {
                                 } else {
                                     term::failure(&mut repl.stdout);
                                 }
-                                repl.checkpoint();
+                                repl.restore();
                             }
-                            _ => break, // TODO
+                            Script::Show(target) => {
+                                repl.suspend();
+                                match target {
+                                    Target::Selected => match view.get_selected() {
+                                        Some(snap) => self.show_snapshot(snap, &mut repl.stdout),
+                                        None => (),
+                                    },
+                                    Target::All => {
+                                        for snap in view.get_view() {
+                                            self.show_snapshot(snap, &mut repl.stdout);
+                                        }
+                                    }
+                                }
+                                repl.restore();
+                            }
                         },
                         Err(error) => {
-                            repl.clear();
-                            repl.writeln(&error.message);
-                            repl.checkpoint()
+                            repl.suspend();
+                            println!("{}", &error.message);
+                            repl.restore();
                         }
                     }
                 }
@@ -152,7 +166,7 @@ impl Context {
         success
     }
 
-    /// Runs a single snapshot
+    /// Runs a single snapshot.
     fn run_snapshot<B: Write>(&self, snap: &Snapshot, buffer: &mut B) -> bool {
         let empty_body = Vec::new();
         let result = unwrap_log(cmd::execute(&snap.cmd));
@@ -187,5 +201,20 @@ impl Context {
             term::separator(6, buffer);
         }
         !failed
+    }
+
+    /// Shows a single test.
+    fn show_snapshot<B: Write>(&self, snap: &Snapshot, buffer: &mut B) {
+        term::title_separator("info", 2, buffer);
+        term::snap_summary(&snap.name, snap.description.as_ref(), &snap.cmd, buffer);
+        if let Some(stdout) = &snap.stdout {
+            term::title_separator("stdout", 0, buffer);
+            buffer.sanitized_write(&stdout.body).unwrap();
+        }
+        if let Some(stderr) = &snap.stderr {
+            term::title_separator("stderr", 0, buffer);
+            buffer.sanitized_write(&stderr.body).unwrap();
+        }
+        term::separator(6, buffer);
     }
 }
