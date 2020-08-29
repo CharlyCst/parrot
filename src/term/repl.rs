@@ -23,6 +23,7 @@ pub struct Repl {
     stdin: Keys<Stdin>,
     input: String,
     cursor_pos: (u16, u16),
+    height: u16,
 }
 
 impl Repl {
@@ -38,6 +39,7 @@ impl Repl {
             stdin,
             input,
             cursor_pos,
+            height: 8 + 5,
         }
     }
 
@@ -50,13 +52,24 @@ impl Repl {
     /// The repl should not be use while suspended.
     pub fn suspend(&mut self) {
         self.clear();
-        self.stdout.suspend_raw_mode().unwrap();
         self.stdout.flush().unwrap();
     }
 
     /// Restore terminal raw mode, the repl can be re-started safely.
     pub fn restore(&mut self) {
-        self.stdout.activate_raw_mode().unwrap();
+        let (_, cursor_y) = self.stdout.cursor_pos().unwrap();
+        let (_, term_height) = terminal_size().unwrap();
+        // If the cursor reached the bottom, make some space
+        if term_height >= self.height && term_height - cursor_y < self.height {
+            write!(
+                self.stdout,
+                "{}{}{}",
+                "\n\r".repeat(self.height as usize),
+                cursor::Goto(1, term_height - self.height),
+                clear::AfterCursor
+            )
+            .unwrap();
+        }
         self.checkpoint();
     }
 
