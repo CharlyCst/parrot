@@ -5,7 +5,7 @@ use crate::data::{DataManager, Snapshot, SnapshotData};
 use crate::editor;
 use crate::error::{unwrap_log, Error};
 use crate::term;
-use crate::term::{Input, SanitizerWriter};
+use crate::term::{BoxedWriter, Input, SeparatorKind};
 
 use parser::{Script, Target};
 use util::*;
@@ -197,36 +197,36 @@ impl Context {
         let failed = !stdout_eq || !stderr_eq || !code_eq;
         // Draw test summary
         if failed {
-            term::title_separator("info", 2, buffer);
+            term::box_separator("info", SeparatorKind::Top, buffer);
             term::snap_summary(&snap.name, snap.description.as_ref(), &snap.cmd, buffer);
         }
         if &result.stdout != old_stdout {
-            term::title_separator("stdout", 0, buffer);
+            term::box_separator("stdout", SeparatorKind::Middle, buffer);
             term::write_diff(old_stdout, &result.stdout, buffer);
         }
         if &result.stderr != old_stderr {
-            term::title_separator("stderr", 0, buffer);
+            term::box_separator("stderr", SeparatorKind::Middle, buffer);
             term::write_diff(old_stderr, &result.stderr, buffer);
         }
         if failed {
-            term::separator(6, buffer);
+            term::box_separator("", SeparatorKind::Bottom, buffer);
         }
         !failed
     }
 
     /// Shows a single test.
     fn show_snapshot<B: Write>(&self, snap: &Snapshot, buffer: &mut B) {
-        term::title_separator("info", 2, buffer);
+        term::box_separator("info", SeparatorKind::Top, buffer);
         term::snap_summary(&snap.name, snap.description.as_ref(), &snap.cmd, buffer);
         if let Some(stdout) = &snap.stdout {
-            term::title_separator("stdout", 0, buffer);
-            buffer.sanitized_write(&stdout.body).unwrap();
+            term::box_separator("stdout", SeparatorKind::Middle, buffer);
+            buffer.boxed_write(&stdout.body).unwrap();
         }
         if let Some(stderr) = &snap.stderr {
-            term::title_separator("stderr", 0, buffer);
-            buffer.sanitized_write(&stderr.body).unwrap();
+            term::box_separator("stderr", SeparatorKind::Middle, buffer);
+            buffer.boxed_write(&stderr.body).unwrap();
         }
-        term::separator(6, buffer);
+        term::box_separator("", SeparatorKind::Bottom, buffer);
     }
 
     /// Edits the selected snapshot.

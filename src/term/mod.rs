@@ -12,6 +12,13 @@ pub use diff::write_diff;
 pub use repl::Input;
 pub use repl::Repl;
 
+pub enum SeparatorKind {
+    Top,
+    Middle,
+    Bottom,
+    _Standalone,
+}
+
 /// Writes a single line to the buffer.
 pub fn writeln<B: Write>(message: &str, buffer: &mut B) {
     write!(buffer, "{}\n\r", message).unwrap();
@@ -37,10 +44,10 @@ pub fn binary_qestion(question: &str) -> Result<bool, Error> {
 }
 
 /// Draws a colored box with a title and a given content.
-pub fn color_box<B: Write>(title: &str, content: &Vec<u8>, mut buffer: &mut B) {
-    title_separator(title, 0, &mut buffer);
-    buffer.sanitized_write(content).unwrap();
-    separator(title.len(), &mut buffer);
+pub fn color_box<B: Write>(title: &str, content: &Vec<u8>, buffer: &mut B) {
+    box_separator(title, SeparatorKind::Top, buffer);
+    buffer.boxed_write(content).unwrap();
+    box_separator("", SeparatorKind::Bottom, buffer);
     buffer.flush().unwrap();
 }
 
@@ -48,10 +55,18 @@ pub fn color_box<B: Write>(title: &str, content: &Vec<u8>, mut buffer: &mut B) {
 pub fn snap_summary<B: Write>(name: &str, description: Option<&String>, cmd: &str, buffer: &mut B) {
     let bold = style::Bold;
     let reset = style::Reset;
-    write!(buffer, "Test:    {}{}{}\n\r", bold, name, reset).unwrap();
-    write!(buffer, "Command: {}{}{}\n\r", bold, cmd, reset).unwrap();
+    buffer
+        .boxed_write_str(&format!(
+            "\
+            Test:    {}{}{}\n\
+            Command: {}{}{}",
+            bold, name, reset, bold, cmd, reset
+        ))
+        .unwrap();
     if let Some(description) = description {
-        write!(buffer, "\n\r{}\n\r", description).unwrap();
+        buffer
+            .boxed_write_str(&format!("\n{}\n", description))
+            .unwrap();
     }
 }
 
@@ -81,55 +96,50 @@ pub fn failure<B: Write>(buffer: &mut B) {
     .unwrap();
 }
 
-/// Writes a separator featuring a title. Padding is rounded down to the closest
-/// multiple of 2.
-pub fn title_separator<B: Write>(title: &str, padding: usize, buffer: &mut B) {
-    let padding = padding / 2 + 1;
+pub fn box_separator<B: Write>(title: &str, kind: SeparatorKind, buffer: &mut B) {
+    let corner = match kind {
+        SeparatorKind::Top => '┌',
+        SeparatorKind::Middle => '├',
+        SeparatorKind::Bottom => '└',
+        SeparatorKind::_Standalone => '─',
+    };
     write!(
         buffer,
-        "{blue}{s:/<2}{green}{s:/<2}{yellow}{s:/<4}{red}{s:/<7}{reset}{p:<padding$}{title}{p:<padding$}{red}{s:/<7}{yellow}{s:/<4}{green}{s:/<2}{blue}{s:/<2}{reset}\n\r",
-        s = "/",
-        p = " ",
-        padding = padding,
-        title = title,
-        red = color::Fg(color::LightRed),
-        yellow = color::Fg(color::LightYellow),
-        green = color::Fg(color::LightGreen),
-        blue = color::Fg(color::LightBlue),
-        reset = color::Fg(color::Reset)
+        "{}{}────{} {}{}{}\n\r",
+        color::Fg(color::LightBlue),
+        corner,
+        color::Fg(color::Reset),
+        style::Bold,
+        title,
+        style::Reset
     )
     .unwrap();
 }
 
-/// Writes a separator, the `extra_width` parameter allow to match the width
-/// of a title separator by passing the title length + padding.
-pub fn separator<B: Write>(extra_width: usize, buffer: &mut B) {
-    write!(
-        buffer,
-        "{blue}{s:/<2}{green}{s:/<2}{yellow}{s:/<4}{red}{s:/<width$}{yellow}{s:/<4}{green}{s:/<2}{blue}{s:/<2}{reset}\n\r",
-        s = "/",
-        width = 16 + extra_width,
-        red = color::Fg(color::LightRed),
-        yellow = color::Fg(color::LightYellow),
-        green = color::Fg(color::LightGreen),
-        blue = color::Fg(color::LightBlue),
-        reset = color::Fg(color::Reset)
-    )
-    .unwrap();
+/// Allows to write boxed messages.
+/// Will sanitize line breaks to handle raw terminal mode.
+pub trait BoxedWriter: Write {
+    fn boxed_write(&mut self, buf: &[u8]) -> io::Result<()>;
+    fn boxed_write_str(&mut self, string: &str) -> io::Result<()>;
 }
 
-/// Allow for sanatized write, which can safely be used in raw mode.
-pub trait SanitizerWriter: Write {
-    fn sanitized_write(&mut self, buf: &[u8]) -> io::Result<()>;
-}
-
-/// Sanitize the content of a source buffer and write its content to the
-/// destination buffer.
-impl<W: Write> SanitizerWriter for W {
-    fn sanitized_write(&mut self, buf: &[u8]) -> io::Result<()> {
+impl<W: Write> BoxedWriter for W {
+    fn boxed_write(&mut self, buf: &[u8]) -> io::Result<()> {
+        let colorize = color::Fg(color::LightBlue);
+        let reset_color = color::Fg(color::Reset);
         for line in buf.split(|c| c == &b'\n') {
+            write!(self, "{}│{} ", colorize, reset_color)?;
             self.write_all(line)?;
             self.write_all(&[b'\n', b'\r'])?;
+        }
+        Ok(())
+    }
+
+    fn boxed_write_str(&mut self, string: &str) -> io::Result<()> {
+        let colorize = color::Fg(color::LightBlue);
+        let reset_color = color::Fg(color::Reset);
+        for line in string.lines() {
+            write!(self, "{}│{} {}\n\r", colorize, reset_color, line)?;
         }
         Ok(())
     }
