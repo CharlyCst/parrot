@@ -17,6 +17,7 @@ pub fn write_help<B: Write>(buffer: &mut B) {
         {b}│{rc} {bold}Parrot script cheat-sheet{rs}                                      {b}│{rc}\n\r\
         {b}│{rc}                                                                {b}│{rc}\n\r\
         {b}│{rc} {bold}clear   c{rs}  Remove any filter                                   {b}│{rc}\n\r\
+        {b}│{rc} {bold}edit    e{rs}  Edit the name or description                        {b}│{rc}\n\r\
         {b}│{rc} {bold}filter  f{rs}  Filter by name (contains) or by #tag (exact match)  {b}│{rc}\n\r\
         {b}│{rc} {bold}help    h{rs}  Print this help                                     {b}│{rc}\n\r\
         {b}│{rc} {bold}quit    q{rs}  Exit from Parrot REPL                               {b}│{rc}\n\r\
