@@ -16,14 +16,19 @@ pub struct EditResult {
     pub tags: Vec<String>,
 }
 
-/// Open an empty description in the user's favorite editor.
+/// Opens an empty description in the user's favorite editor.
 pub fn open_empty<P: AsRef<Path>>(path: P, cmd: &str) -> Result<EditResult, Error> {
     open(path, "", "", cmd)
 }
 
-/// Open a new description file in the user's favorite editor.
+/// Opens the snapshot's description file in the user's favorite editor.
+pub fn open_snap<P: AsRef<Path>>(path: P, name: &str, description: &str, cmd: &str) -> Result<EditResult, Error> {
+    open(path, name, description, cmd)
+}
+
+/// Opens a new description file in the user's favorite editor.
 fn open<P: AsRef<Path>>(path: P, name: &str, description: &str, cmd: &str) -> Result<EditResult, Error> {
-    let editor = var("EDITOR").unwrap();
+    let editor = var("EDITOR").expect("No 'EDITOR' environment variable.");
     let mut file_path = path.as_ref().to_owned();
     file_path.push(PARROT_PATH);
     file_path.push(FILE_NAME);

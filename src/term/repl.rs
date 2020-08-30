@@ -73,6 +73,11 @@ impl Repl {
         self.checkpoint();
     }
 
+    /// Writes a single line to the output. The REPL must have been suspended.
+    pub fn writeln(&mut self, message: &str) {
+        write!(self.stdout, "{}\n\r", message).unwrap();
+    }
+
     /// Runs the REPL and returns control once a command has been received.
     pub fn run(&mut self, view: &View) -> Input {
         self.render(view);
@@ -145,6 +150,7 @@ impl Repl {
         let (min, max) = view.window;
         let data = view.get_view();
         for (pos, snap) in data[min..max].iter().enumerate() {
+            let snap = snap.borrow();
             if pos == view.cursor {
                 write!(
                     self.stdout,
@@ -214,7 +220,7 @@ impl Repl {
 
         // Get snapshot content
         let snap = view.get_selected();
-        let (name, cmd, descs) = if let Some(snap) = snap {
+        let (name, cmd, descs) = if let Some(snap) = snap.as_ref() {
             let desc = if let Some(ref desc) = snap.description {
                 // Get descriptions lines and truncate them
                 let mut descs = desc.lines();

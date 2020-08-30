@@ -2,6 +2,7 @@ use super::scanner::Token;
 
 pub enum Script {
     Quit,
+    Edit,
     Filter(Filter),
     Clear,
     Run(Target),
@@ -98,6 +99,13 @@ impl Parser {
                     Ok(Script::Run(target))
                 } else {
                     Err(ParserError::new("Run takes one or zero argument."))
+                }
+            }
+            Token::Edit => {
+                if self.is_terminator() {
+                    Ok(Script::Edit)
+                } else {
+                    Err(ParserError::new("Edit takes no argument."))
                 }
             }
             Token::EOS => Err(ParserError::new("Please enter a valid command.")),

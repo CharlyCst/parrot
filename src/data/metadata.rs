@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use super::Snapshot;
 use crate::error::{wrap, Error};
@@ -43,9 +44,11 @@ impl MetadataManager {
     }
 
     /// Persists metadata to the file system from the list of snapshots.
-    pub fn persist(&self, snaps: &Vec<Rc<Snapshot>>) -> Result<(), Error> {
+    /// Borrows an immutable reference to the snapshots.
+    pub fn persist(&self, snaps: &Vec<Rc<RefCell<Snapshot>>>) -> Result<(), Error> {
         let mut snapshots = Vec::with_capacity(snaps.len());
         for snap in snaps {
+            let snap = snap.borrow();
             let stdout = match &snap.stdout {
                 Some(data) => Some(data.path.clone()),
                 None => None,

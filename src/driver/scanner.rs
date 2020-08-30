@@ -4,6 +4,7 @@ use std::collections::HashMap;
 pub enum Token {
     Quit,
     Filter,
+    Edit,
     Clear,
     Run,
     Show,
@@ -28,6 +29,8 @@ impl Scanner {
         map.insert(String::from("q"), Token::Quit);
         map.insert(String::from("filter"), Token::Filter);
         map.insert(String::from("f"), Token::Filter);
+        map.insert(String::from("edit"), Token::Edit);
+        map.insert(String::from("e"), Token::Edit);
         map.insert(String::from("clear"), Token::Clear);
         map.insert(String::from("c"), Token::Clear);
         map.insert(String::from("run"), Token::Run);
@@ -99,6 +102,7 @@ impl std::fmt::Display for Token {
             Token::Star => write!(f, "*"),
             Token::Run => write!(f, "run"),
             Token::EOS => write!(f, "VOID"),
+            Token::Edit => write!(f, "edit"),
             Token::Show => write!(f, "show"),
             Token::Quit => write!(f, "quit"),
             Token::Help => write!(f, "help"),

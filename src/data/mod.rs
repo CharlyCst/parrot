@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -27,7 +28,7 @@ pub struct SnapshotData {
 }
 
 pub struct DataManager {
-    snaps: Option<Vec<Rc<Snapshot>>>,
+    snaps: Option<Vec<Rc<RefCell<Snapshot>>>>,
     metadata_manager: metadata::MetadataManager,
     snap_manager: snapshots::SnapshotsManager,
     path: PathBuf,
@@ -73,18 +74,28 @@ impl DataManager {
         Ok(())
     }
 
-    pub fn add_snapshot(&mut self, snap: Rc<Snapshot>) -> Result<(), Error> {
+    /// Adds a snapshot and persist all snapshots to file system.
+    pub fn add_snapshot(&mut self, snap: Snapshot) -> Result<(), Error> {
         self.snap_manager.create(&snap)?;
         let snaps = self.get_snaps()?;
-        snaps.push(snap);
+        snaps.push(Rc::new(RefCell::new(snap)));
         // Unwrap is safe because `self.get_snaps` caches snaps.
         self.metadata_manager
             .persist(self.snaps.as_ref().unwrap())?;
         Ok(())
     }
 
+    /// Persists the snapshots to file system, should be used after any
+    /// snapshot update.
+    pub fn persist(&self) -> Result<(), Error> {
+        if let Some(snaps) = self.snaps.as_ref() {
+            self.metadata_manager.persist(snaps)?;
+        }
+        Ok(())
+    }
+
     /// Returns a vector of snapshot references.
-    pub fn get_all_snapshots(&mut self) -> Result<Vec<Rc<Snapshot>>, Error> {
+    pub fn get_all_snapshots(&mut self) -> Result<Vec<Rc<RefCell<Snapshot>>>, Error> {
         let mut snaps = Vec::new();
         for snap in self.get_snaps()? {
             snaps.push(Rc::clone(snap));
@@ -93,7 +104,7 @@ impl DataManager {
     }
 
     /// Lazyly loads snapshots.
-    fn get_snaps(&mut self) -> Result<&mut Vec<Rc<Snapshot>>, Error> {
+    fn get_snaps(&mut self) -> Result<&mut Vec<Rc<RefCell<Snapshot>>>, Error> {
         if let Some(ref mut snaps) = self.snaps {
             Ok(snaps)
         } else {
@@ -110,7 +121,7 @@ impl DataManager {
         for snap in metadatas.snapshots {
             let stdout = self.load_snapshot_body(snap.stdout)?;
             let stderr = self.load_snapshot_body(snap.stderr)?;
-            snaps.push(Rc::new(Snapshot {
+            snaps.push(Rc::new(RefCell::new(Snapshot {
                 exit_code: snap.exit_code,
                 stderr,
                 stdout,
@@ -118,7 +129,7 @@ impl DataManager {
                 name: snap.name,
                 description: snap.description,
                 tags: snap.tags,
-            }))
+            })))
         }
         self.snaps = Some(snaps);
         Ok(())

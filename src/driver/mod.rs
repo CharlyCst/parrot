@@ -1,6 +1,5 @@
 use std::io::{stdin, stdout, Write};
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use crate::data::{DataManager, Snapshot, SnapshotData};
 use crate::editor;
@@ -67,7 +66,7 @@ impl Context {
                 }
             };
             let snapshot = to_snapshot(name, description, tags, cmd.to_owned(), snap);
-            unwrap_log(self.data.add_snapshot(Rc::new(snapshot)));
+            unwrap_log(self.data.add_snapshot(snapshot));
         }
     }
 
@@ -110,6 +109,18 @@ impl Context {
                                 term::help::write_help(&mut repl.stdout);
                                 repl.restore();
                             }
+                            Script::Edit => {
+                                repl.suspend();
+                                if let Some(mut snap) = view.get_selected_mut() {
+                                    if self.edit_snapshot(&mut snap, &mut repl.stdout) {
+                                        drop(snap); // Release the mutable borrow to allow data.persist
+                                        unwrap_log(self.data.persist());
+                                    }
+                                } else {
+                                    repl.writeln("No snapshot to edit.")
+                                }
+                                repl.restore();
+                            }
                             Script::Filter(args) => view.apply_filter(args),
                             Script::Clear => view.clear_filters(),
                             Script::Run(target) => {
@@ -117,7 +128,7 @@ impl Context {
                                 let success = match target {
                                     Target::All => self.run_view(&view, &mut repl.stdout),
                                     Target::Selected => match view.get_selected() {
-                                        Some(snap) => self.run_snapshot(snap, &mut repl.stdout),
+                                        Some(snap) => self.run_snapshot(&snap, &mut repl.stdout),
                                         None => true,
                                     },
                                 };
@@ -132,12 +143,12 @@ impl Context {
                                 repl.suspend();
                                 match target {
                                     Target::Selected => match view.get_selected() {
-                                        Some(snap) => self.show_snapshot(snap, &mut repl.stdout),
+                                        Some(snap) => self.show_snapshot(&snap, &mut repl.stdout),
                                         None => (),
                                     },
                                     Target::All => {
                                         for snap in view.get_view() {
-                                            self.show_snapshot(snap, &mut repl.stdout);
+                                            self.show_snapshot(&snap.borrow(), &mut repl.stdout);
                                         }
                                     }
                                 }
@@ -146,7 +157,7 @@ impl Context {
                         },
                         Err(error) => {
                             repl.suspend();
-                            println!("{}", &error.message);
+                            repl.writeln(&error.message);
                             repl.restore();
                         }
                     }
@@ -160,7 +171,7 @@ impl Context {
     fn run_view<B: Write>(&mut self, view: &View, buffer: &mut B) -> bool {
         let mut success = true;
         for snap in view.get_view() {
-            let pass = self.run_snapshot(snap, buffer);
+            let pass = self.run_snapshot(&snap.borrow(), buffer);
             success = success && pass;
         }
         success
@@ -216,5 +227,40 @@ impl Context {
             buffer.sanitized_write(&stderr.body).unwrap();
         }
         term::separator(6, buffer);
+    }
+
+    /// Edits the selected snapshot.
+    /// Returns true if there was a change, false otherwise.
+    fn edit_snapshot<B: Write>(&self, snap: &mut Snapshot, buffer: &mut B) -> bool {
+        let description = match snap.description.as_ref() {
+            Some(desc) => desc,
+            None => "",
+        };
+        match editor::open_snap(&self.path, &snap.name, description, &snap.cmd) {
+            Ok(edit) => {
+                let mut has_changed = false;
+                if let Some(name) = edit.name {
+                    if name != snap.name {
+                        snap.name = name;
+                        has_changed = true;
+                    }
+                }
+                if edit.description != snap.description {
+                    snap.description = edit.description;
+                    has_changed = true;
+                }
+                if has_changed {
+                    term::writeln("Updated.", buffer);
+                    true
+                } else {
+                    term::writeln("Nothing to change.", buffer);
+                    false
+                }
+            }
+            Err(err) => {
+                term::writeln(&err.message, buffer);
+                false
+            }
+        }
     }
 }

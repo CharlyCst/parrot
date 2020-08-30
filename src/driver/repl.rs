@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use super::parser::Filter;
@@ -5,8 +6,8 @@ use crate::data::Snapshot;
 
 /// Represents a view of the snapshots after filters have been applied.
 pub struct View {
-    data: Vec<Rc<Snapshot>>,
-    view: Vec<Rc<Snapshot>>,
+    data: Vec<Rc<RefCell<Snapshot>>>,
+    view: Vec<Rc<RefCell<Snapshot>>>,
     /// Height of the view window
     pub height: usize,
     /// Position of the cursor relative to the view window
@@ -16,7 +17,7 @@ pub struct View {
 }
 
 impl View {
-    pub fn new(data: Vec<Rc<Snapshot>>) -> View {
+    pub fn new(data: Vec<Rc<RefCell<Snapshot>>>) -> View {
         let height = 5;
         let n = data.len();
         let mut view = Vec::with_capacity(data.len());
@@ -33,16 +34,27 @@ impl View {
     }
 
     /// Returns a view of the data.
-    pub fn get_view(&self) -> &Vec<Rc<Snapshot>> {
+    pub fn get_view(&self) -> &Vec<Rc<RefCell<Snapshot>>> {
         &self.view
     }
 
     /// Returns the selected item.
-    pub fn get_selected(&self) -> Option<&Snapshot> {
+    /// Borrows an immutable ref to the snapshot.
+    pub fn get_selected(&self) -> Option<Ref<Snapshot>> {
         if self.view.len() == 0 {
             None
         } else {
-            Some(&self.view[self.window.0 + self.cursor])
+            Some(self.view[self.window.0 + self.cursor].borrow())
+        }
+    }
+
+    /// Returns a mutable reference of the selected item.
+    /// Borrows a mutable ref, use with care.
+    pub fn get_selected_mut(&self) -> Option<RefMut<Snapshot>> {
+        if self.view.len() == 0 {
+            None
+        } else {
+            Some(self.view[self.window.0 + self.cursor].borrow_mut())
         }
     }
 
@@ -132,7 +144,7 @@ impl View {
     fn apply_tag_filter(&mut self, tag: &String) {
         let old_view = std::mem::replace(&mut self.view, Vec::new());
         for snap in old_view {
-            if snap.tags.contains(tag) {
+            if snap.borrow().tags.contains(tag) {
                 self.view.push(snap);
             }
         }
@@ -142,7 +154,7 @@ impl View {
     fn apply_name_filter(&mut self, name: &String) {
         let old_view = std::mem::replace(&mut self.view, Vec::new());
         for snap in old_view {
-            if snap.name.contains(name) {
+            if snap.borrow().name.contains(name) {
                 self.view.push(snap);
             }
         }

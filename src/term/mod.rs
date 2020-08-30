@@ -12,7 +12,12 @@ pub use diff::write_diff;
 pub use repl::Input;
 pub use repl::Repl;
 
-/// Ask a binary question to the user. Return true for yes, false for no.
+/// Writes a single line to the buffer.
+pub fn writeln<B: Write>(message: &str, buffer: &mut B) {
+    write!(buffer, "{}\n\r", message).unwrap();
+}
+
+/// Asks a binary question to the user. Return true for yes, false for no.
 pub fn binary_qestion(question: &str) -> Result<bool, Error> {
     let stdin = stdin();
     let mut stdout = stdout();
