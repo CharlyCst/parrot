@@ -2,7 +2,7 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use std::process::Output;
 
-use super::{SnapshotData, Snapshot};
+use crate::data::{Snapshot, SnapshotData, SnapshotStatus};
 
 /// Creates a snapshot out of an execution result
 pub fn to_snapshot(
@@ -23,6 +23,7 @@ pub fn to_snapshot(
         exit_code,
         stdout,
         stderr,
+        status: SnapshotStatus::Waiting,
     }
 }
 

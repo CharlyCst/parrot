@@ -12,6 +12,12 @@ pub const PARROT_PATH: &'static str = ".parrot";
 const SNAPSHOT_PATH: &'static str = "snapshots";
 const METADATA_PATH: &'static str = "metadata.json";
 
+pub enum SnapshotStatus {
+    Failed,
+    Passed,
+    Waiting,
+}
+
 pub struct Snapshot {
     pub exit_code: Option<i32>,
     pub stderr: Option<SnapshotData>,
@@ -20,6 +26,7 @@ pub struct Snapshot {
     pub name: String,
     pub description: Option<String>,
     pub tags: Vec<String>,
+    pub status: SnapshotStatus,
 }
 
 pub struct SnapshotData {
@@ -129,6 +136,7 @@ impl DataManager {
                 name: snap.name,
                 description: snap.description,
                 tags: snap.tags,
+                status: SnapshotStatus::Waiting,
             })))
         }
         self.snaps = Some(snaps);

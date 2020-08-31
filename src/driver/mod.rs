@@ -1,7 +1,7 @@
 use std::io::{stdin, stdout, Write};
 use std::path::PathBuf;
 
-use crate::data::{DataManager, Snapshot, SnapshotData};
+use crate::data::{DataManager, Snapshot, SnapshotStatus};
 use crate::editor;
 use crate::error::{unwrap_log, Error};
 use crate::term;
@@ -150,8 +150,8 @@ impl Context {
         repl.suspend();
         let success = match target {
             Target::All => self.run_view(&view, &mut repl.stdout),
-            Target::Selected => match view.get_selected() {
-                Some(snap) => self.run_snapshot(&snap, &mut repl.stdout),
+            Target::Selected => match view.get_selected_mut() {
+                Some(mut snap) => self.run_snapshot(&mut snap, &mut repl.stdout),
                 None => true,
             },
         };
@@ -184,14 +184,14 @@ impl Context {
     fn run_view<B: Write>(&mut self, view: &View, buffer: &mut B) -> bool {
         let mut success = true;
         for snap in view.get_view() {
-            let pass = self.run_snapshot(&snap.borrow(), buffer);
+            let pass = self.run_snapshot(&mut snap.borrow_mut(), buffer);
             success = success && pass;
         }
         success
     }
 
     /// Runs a single snapshot.
-    fn run_snapshot<B: Write>(&self, snap: &Snapshot, buffer: &mut B) -> bool {
+    fn run_snapshot<B: Write>(&self, snap: &mut Snapshot, buffer: &mut B) -> bool {
         let empty_body = Vec::new();
         let result = unwrap_log(cmd::execute(&snap.cmd));
         let old_stdout = if let Some(ref stdout) = snap.stdout {
@@ -223,6 +223,9 @@ impl Context {
         }
         if failed {
             term::box_separator("", SeparatorKind::Bottom, buffer);
+            snap.status = SnapshotStatus::Failed;
+        } else {
+            snap.status = SnapshotStatus::Passed;
         }
         !failed
     }

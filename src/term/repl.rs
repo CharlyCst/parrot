@@ -1,13 +1,11 @@
 use std::io::{BufWriter, Stdin, Stdout, Write};
-use termion::clear;
-use termion::cursor;
 use termion::cursor::DetectCursorPos;
 use termion::event::Key;
 use termion::input::{Keys, TermRead};
 use termion::raw::{IntoRawMode, RawTerminal};
-use termion::terminal_size;
-use termion::{color, style};
+use termion::{clear, color, cursor, style, terminal_size};
 
+use crate::data::SnapshotStatus;
 use crate::driver::View;
 
 pub enum Input {
@@ -24,6 +22,11 @@ pub struct Repl {
     input: String,
     cursor_pos: (u16, u16),
     height: u16,
+
+    // Symbols
+    waiting_symbol: String,
+    failed_symbol: String,
+    passed_symbol: String,
 }
 
 impl Repl {
@@ -40,6 +43,19 @@ impl Repl {
             input,
             cursor_pos,
             height: 8 + 5,
+
+            // Symbols
+            waiting_symbol: format!(
+                "{}~{}",
+                color::Fg(color::LightBlue),
+                color::Fg(color::Reset)
+            ),
+            failed_symbol: format!("{}✗{}", color::Fg(color::LightRed), color::Fg(color::Reset)),
+            passed_symbol: format!(
+                "{}✓{}",
+                color::Fg(color::LightGreen),
+                color::Fg(color::Reset)
+            ),
         };
         repl.restore();
         repl
@@ -153,15 +169,25 @@ impl Repl {
         let data = view.get_view();
         for (pos, snap) in data[min..max].iter().enumerate() {
             let snap = snap.borrow();
+            let status = match snap.status {
+                SnapshotStatus::Waiting => &self.waiting_symbol,
+                SnapshotStatus::Failed => &self.failed_symbol,
+                SnapshotStatus::Passed => &self.passed_symbol,
+            };
             if pos == view.cursor {
                 write!(
                     self.stdout,
-                    "{}{}{}>{}  {}{}{}\n\r",
-                    bg, bold, red, clear_red, snap.name, clear_bold, clear_bg
+                    "{}{}{}>{} {} {}{}{}\n\r",
+                    bg, bold, red, clear_red, status, snap.name, clear_bold, clear_bg
                 )
                 .unwrap();
             } else {
-                write!(self.stdout, "{} {}  {}\n\r", bg, clear_bg, snap.name).unwrap();
+                write!(
+                    self.stdout,
+                    "{} {} {} {}\n\r",
+                    bg, clear_bg, status, snap.name
+                )
+                .unwrap();
             };
         }
         let current = if data.len() == 0 {
