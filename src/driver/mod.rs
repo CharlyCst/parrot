@@ -104,56 +104,12 @@ impl Context {
                     match parser.parse(tokens) {
                         Ok(script) => match script {
                             Script::Quit => break,
-                            Script::Help => {
-                                repl.suspend();
-                                term::help::write_help(&mut repl.stdout);
-                                repl.restore();
-                            }
-                            Script::Edit => {
-                                repl.suspend();
-                                if let Some(mut snap) = view.get_selected_mut() {
-                                    if self.edit_snapshot(&mut snap, &mut repl.stdout) {
-                                        drop(snap); // Release the mutable borrow to allow data.persist
-                                        unwrap_log(self.data.persist());
-                                    }
-                                } else {
-                                    repl.writeln("No snapshot to edit.")
-                                }
-                                repl.restore();
-                            }
+                            Script::Help => self.execute_help(&mut repl),
+                            Script::Edit => self.execute_edit(&mut repl, &view),
                             Script::Filter(args) => view.apply_filter(args),
                             Script::Clear => view.clear_filters(),
-                            Script::Run(target) => {
-                                repl.suspend();
-                                let success = match target {
-                                    Target::All => self.run_view(&view, &mut repl.stdout),
-                                    Target::Selected => match view.get_selected() {
-                                        Some(snap) => self.run_snapshot(&snap, &mut repl.stdout),
-                                        None => true,
-                                    },
-                                };
-                                if success {
-                                    term::success(&mut repl.stdout);
-                                } else {
-                                    term::failure(&mut repl.stdout);
-                                }
-                                repl.restore();
-                            }
-                            Script::Show(target) => {
-                                repl.suspend();
-                                match target {
-                                    Target::Selected => match view.get_selected() {
-                                        Some(snap) => self.show_snapshot(&snap, &mut repl.stdout),
-                                        None => (),
-                                    },
-                                    Target::All => {
-                                        for snap in view.get_view() {
-                                            self.show_snapshot(&snap.borrow(), &mut repl.stdout);
-                                        }
-                                    }
-                                }
-                                repl.restore();
-                            }
+                            Script::Run(target) => self.execute_run(&mut repl, &view, target),
+                            Script::Show(target) => self.execute_show(&mut repl, &view, target),
                         },
                         Err(error) => {
                             repl.suspend();
@@ -166,6 +122,62 @@ impl Context {
         }
         // Clear the REPL befor exiting
         repl.suspend();
+    }
+
+    /// Executes the help command.
+    fn execute_help(&self, repl: &mut term::Repl) {
+        repl.suspend();
+        term::help::write_help(&mut repl.stdout);
+        repl.restore();
+    }
+
+    /// Executes the edit command.
+    fn execute_edit(&self, repl: &mut term::Repl, view: &View) {
+        repl.suspend();
+        if let Some(mut snap) = view.get_selected_mut() {
+            if self.edit_snapshot(&mut snap, &mut repl.stdout) {
+                drop(snap); // Release the mutable borrow to allow data.persist
+                unwrap_log(self.data.persist());
+            }
+        } else {
+            repl.writeln("No snapshot to edit.")
+        }
+        repl.restore();
+    }
+
+    /// Executes the run command.
+    fn execute_run(&mut self, repl: &mut term::Repl, view: &View, target: Target) {
+        repl.suspend();
+        let success = match target {
+            Target::All => self.run_view(&view, &mut repl.stdout),
+            Target::Selected => match view.get_selected() {
+                Some(snap) => self.run_snapshot(&snap, &mut repl.stdout),
+                None => true,
+            },
+        };
+        if success {
+            term::success(&mut repl.stdout);
+        } else {
+            term::failure(&mut repl.stdout);
+        }
+        repl.restore();
+    }
+
+    /// Executes the show command.
+    fn execute_show(&self, repl: &mut term::Repl, view: &View, target: Target) {
+        repl.suspend();
+        match target {
+            Target::Selected => match view.get_selected() {
+                Some(snap) => self.show_snapshot(&snap, &mut repl.stdout),
+                None => (),
+            },
+            Target::All => {
+                for snap in view.get_view() {
+                    self.show_snapshot(&snap.borrow(), &mut repl.stdout);
+                }
+            }
+        }
+        repl.restore();
     }
 
     /// Runs only commands from the given view.
