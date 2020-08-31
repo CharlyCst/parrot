@@ -29,6 +29,7 @@ pub struct Snapshot {
     pub status: SnapshotStatus,
 }
 
+#[derive(PartialEq, Eq)]
 pub struct SnapshotData {
     pub path: String,
     pub body: Vec<u8>,
@@ -92,12 +93,18 @@ impl DataManager {
         Ok(())
     }
 
-    /// Persists the snapshots to file system, should be used after any
-    /// snapshot update.
-    pub fn persist(&self) -> Result<(), Error> {
+    /// Persists the snapshots' metadata to file system, should be used after 
+    /// any snapshot metadata update update.
+    pub fn persist_metadata(&self) -> Result<(), Error> {
         if let Some(snaps) = self.snaps.as_ref() {
             self.metadata_manager.persist(snaps)?;
         }
+        Ok(())
+    }
+
+    /// Persists the snapshot's stdout and stder bodies to the file system.
+    pub fn persist_snapshot_data(&self, snap: &Snapshot) -> Result<(), Error> {
+        self.snap_manager.update(snap)?;
         Ok(())
     }
 

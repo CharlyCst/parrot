@@ -39,6 +39,17 @@ impl SnapshotsManager {
         Ok(())
     }
 
+    /// Update a snapshot, will truncate any already existing file.
+    pub fn update(&self, snap: &Snapshot) -> Result<(), Error> {
+        if let Some(stdout) = &snap.stdout {
+            self.update_snapshot(stdout)?;
+        }
+        if let Some(stderr) = &snap.stderr {
+            self.update_snapshot(stderr)?;
+        }
+        Ok(())
+    }
+
     /// Read a snapshot from file.
     pub fn get(&self, name: &str) -> Result<Vec<u8>, Error> {
         let mut snap = Vec::new();
@@ -54,6 +65,20 @@ impl SnapshotsManager {
             &format!("Failed to open snapshot {}.", name),
         )?;
         Ok(snap)
+    }
+
+    /// Update a single snapshot, will not rise any errors if the snapshot already
+    /// exists.
+    fn update_snapshot(&self, snap: &SnapshotData) -> Result<(), Error> {
+        let mut path = snap.path.to_owned();
+        path.push_str(FILE_EXTENSION);
+        let path = self.path.join(path);
+        let mut file = wrap(fs::File::create(path), "Failed to create a snapshot file")?;
+        wrap(
+            file.write_all(&snap.body),
+            "Faile to write down the snapshot",
+        )?;
+        Ok(())
     }
 
     /// Write a single snapshot.

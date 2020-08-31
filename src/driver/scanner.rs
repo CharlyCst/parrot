@@ -6,6 +6,7 @@ pub enum Token {
     Filter,
     Edit,
     Clear,
+    Update,
     Run,
     Show,
     Help,
@@ -33,6 +34,8 @@ impl Scanner {
         map.insert(String::from("e"), Token::Edit);
         map.insert(String::from("clear"), Token::Clear);
         map.insert(String::from("c"), Token::Clear);
+        map.insert(String::from("update"), Token::Update);
+        map.insert(String::from("u"), Token::Update);
         map.insert(String::from("run"), Token::Run);
         map.insert(String::from("r"), Token::Run);
         map.insert(String::from("show"), Token::Show);
@@ -107,9 +110,10 @@ impl std::fmt::Display for Token {
             Token::Quit => write!(f, "quit"),
             Token::Help => write!(f, "help"),
             Token::Clear => write!(f, "clear"),
-            Token::Filter => write!(f, "filter"),
             Token::Lit(s) => write!(f, "{}", s),
             Token::Sha(t) => write!(f, "#{}", t),
+            Token::Update => write!(f, "update"),
+            Token::Filter => write!(f, "filter"),
         }
     }
 }

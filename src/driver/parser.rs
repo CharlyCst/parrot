@@ -2,12 +2,13 @@ use super::scanner::Token;
 
 pub enum Script {
     Quit,
-    Edit,
-    Filter(Filter),
-    Clear,
-    Run(Target),
-    Show(Target),
     Help,
+    Edit,
+    Clear,
+    Filter(Filter),
+    Update(Target),
+    Show(Target),
+    Run(Target),
 }
 
 pub enum Filter {
@@ -83,6 +84,14 @@ impl Parser {
                     Ok(Script::Filter(args))
                 } else {
                     Err(ParserError::new("Filter takes only one argument."))
+                }
+            }
+            Token::Update => {
+                let target = self.parse_target()?;
+                if self.is_terminator() {
+                    Ok(Script::Update(target))
+                } else {
+                    Err(ParserError::new("Update takes one or zero argument."))
                 }
             }
             Token::Show => {

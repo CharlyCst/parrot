@@ -106,10 +106,11 @@ impl Context {
                             Script::Quit => break,
                             Script::Help => self.execute_help(&mut repl),
                             Script::Edit => self.execute_edit(&mut repl, &view),
-                            Script::Filter(args) => view.apply_filter(args),
                             Script::Clear => view.clear_filters(),
+                            Script::Filter(args) => view.apply_filter(args),
                             Script::Run(target) => self.execute_run(&mut repl, &view, target),
                             Script::Show(target) => self.execute_show(&mut repl, &view, target),
+                            Script::Update(target) => self.execute_update(&mut repl, &view, target),
                         },
                         Err(error) => {
                             repl.suspend();
@@ -137,7 +138,7 @@ impl Context {
         if let Some(mut snap) = view.get_selected_mut() {
             if self.edit_snapshot(&mut snap, &mut repl.stdout) {
                 drop(snap); // Release the mutable borrow to allow data.persist
-                unwrap_log(self.data.persist());
+                unwrap_log(self.data.persist_metadata());
             }
         } else {
             repl.writeln("No snapshot to edit.")
@@ -160,6 +161,16 @@ impl Context {
         } else {
             term::failure(&mut repl.stdout);
         }
+        repl.restore();
+    }
+
+    /// Executes the run command.
+    fn execute_update(&mut self, repl: &mut term::Repl, view: &View, target: Target) {
+        repl.suspend();
+        match target {
+            Target::All => self.update_view(repl, view),
+            Target::Selected => self.update_selected(repl, view),
+        };
         repl.restore();
     }
 
@@ -278,5 +289,69 @@ impl Context {
                 false
             }
         }
+    }
+
+    /// Updates all the snapshots of the current view.
+    fn update_view(&self, repl: &mut term::Repl, view: &View) {
+        let mut count = 0;
+        for snap in view.get_view() {
+            let mut snap = snap.borrow_mut();
+            if self.update_snapshot(&mut snap) {
+                unwrap_log(self.data.persist_snapshot_data(&snap));
+                count += 1;
+            }
+        }
+        if count > 0 {
+            if count == 1 {
+                repl.writeln("Updated 1 snapshot.");
+            } else {
+                repl.writeln(&format!("Updated {} snapshots.", count));
+            }
+            unwrap_log(self.data.persist_metadata());
+        } else {
+            repl.writeln("Nothing to do.");
+        }
+    }
+
+    /// Updates the snapshot selected in the current view.
+    fn update_selected(&self, repl: &mut term::Repl, view: &View) {
+        match view.get_selected_mut() {
+            Some(mut snap) => {
+                if self.update_snapshot(&mut snap) {
+                    unwrap_log(self.data.persist_snapshot_data(&snap));
+                    drop(snap); // Release mut ref before persisting
+                    unwrap_log(self.data.persist_metadata());
+                    repl.writeln("Updated 1 snapshot.")
+                } else {
+                    repl.writeln("Nothing to do.")
+                }
+            }
+            None => repl.writeln("No snapshot to update."),
+        }
+    }
+
+    /// Updates a single snapshot.
+    /// Returns true if there was a change, false otherwise.
+    /// The command will be run to get the new output, there is no caching for
+    /// now.
+    fn update_snapshot(&self, snap: &mut Snapshot) -> bool {
+        let result = unwrap_log(cmd::execute(&snap.cmd));
+        let mut has_changed = false;
+        let new_stdout = util::to_snapshot_data(result.stdout, &snap.name, ".out");
+        let new_stderr = util::to_snapshot_data(result.stderr, &snap.name, ".err");
+        if snap.exit_code != result.status.code() {
+            snap.exit_code = result.status.code();
+            has_changed = true;
+        }
+        if snap.stdout != new_stdout {
+            snap.stdout = new_stdout;
+            has_changed = true;
+        }
+        if snap.stderr != new_stderr {
+            snap.stderr = new_stderr;
+            has_changed = true;
+        }
+        snap.status = SnapshotStatus::Passed;
+        has_changed
     }
 }
