@@ -34,28 +34,30 @@ impl Repl {
         let input = String::from("");
         write!(stdout, "{}", cursor::Save).unwrap();
         let cursor_pos = stdout.cursor_pos().unwrap();
-        Repl {
+        let mut repl = Repl {
             stdout,
             stdin,
             input,
             cursor_pos,
             height: 8 + 5,
-        }
+        };
+        repl.restore();
+        repl
     }
 
     /// Clears the REPL from the screen.
-    pub fn clear(&mut self) {
+    fn clear(&mut self) {
         write!(self.stdout, "{}{}", cursor::Restore, clear::AfterCursor).unwrap();
     }
 
-    /// Suspend terminal raw mode, stdout can be used normally until restored.
+    /// Suspend REPL mode, stdout can be used normally until restored.
     /// The repl should not be use while suspended.
     pub fn suspend(&mut self) {
         self.clear();
         self.stdout.flush().unwrap();
     }
 
-    /// Restore terminal raw mode, the repl can be re-started safely.
+    /// Restore REPL mode, the repl can be re-started safely.
     pub fn restore(&mut self) {
         let (_, cursor_y) = self.stdout.cursor_pos().unwrap();
         let (_, term_height) = terminal_size().unwrap();

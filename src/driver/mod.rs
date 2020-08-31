@@ -164,7 +164,8 @@ impl Context {
                 }
             }
         }
-        repl.clear();
+        // Clear the REPL befor exiting
+        repl.suspend();
     }
 
     /// Runs only commands from the given view.
