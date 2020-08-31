@@ -42,7 +42,7 @@ impl Context {
         let save = if yes {
             true
         } else {
-            term::color_box("Snapshot", &snap.stdout, &mut stdout());
+            term::snap_preview(&snap, &mut stdout());
             unwrap_log(term::binary_qestion("Save this snapshot?"))
         };
         if save {
@@ -210,8 +210,8 @@ impl Context {
         let failed = !stdout_eq || !stderr_eq || !code_eq;
         // Draw test summary
         if failed {
-            term::box_separator("info", SeparatorKind::Top, buffer);
-            term::snap_summary(&snap.name, snap.description.as_ref(), &snap.cmd, buffer);
+            term::box_separator(&snap.name, SeparatorKind::Top, buffer);
+            term::snap_summary(snap.description.as_ref(), &snap.cmd, snap.exit_code, buffer);
         }
         if &result.stdout != old_stdout {
             term::box_separator("stdout", SeparatorKind::Middle, buffer);
@@ -229,8 +229,8 @@ impl Context {
 
     /// Shows a single test.
     fn show_snapshot<B: Write>(&self, snap: &Snapshot, buffer: &mut B) {
-        term::box_separator("info", SeparatorKind::Top, buffer);
-        term::snap_summary(&snap.name, snap.description.as_ref(), &snap.cmd, buffer);
+        term::box_separator(&snap.name, SeparatorKind::Top, buffer);
+        term::snap_summary(snap.description.as_ref(), &snap.cmd, snap.exit_code, buffer);
         if let Some(stdout) = &snap.stdout {
             term::box_separator("stdout", SeparatorKind::Middle, buffer);
             buffer.boxed_write(&stdout.body).unwrap();

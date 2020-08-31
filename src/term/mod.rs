@@ -43,24 +43,49 @@ pub fn binary_qestion(question: &str) -> Result<bool, Error> {
     }
 }
 
-/// Draws a colored box with a title and a given content.
-pub fn color_box<B: Write>(title: &str, content: &Vec<u8>, buffer: &mut B) {
-    box_separator(title, SeparatorKind::Top, buffer);
-    buffer.boxed_write(content).unwrap();
+pub fn snap_preview<B: Write>(snap: &std::process::Output, buffer: &mut B) {
+    box_separator("status code", SeparatorKind::Top, buffer);
+    let exit_code = snap.status.code();
+    if let Some(code) = exit_code {
+        buffer
+            .boxed_write_str(&format!("{}{}{}", style::Bold, code, style::Reset))
+            .unwrap();
+    } else {
+        buffer
+            .boxed_write_str(&format!("{}None{}", style::Bold, style::Reset))
+            .unwrap();
+    }
+    if snap.stdout.len() > 0 {
+        box_separator("stdout", SeparatorKind::Middle, buffer);
+        buffer.boxed_write(&snap.stdout).unwrap();
+    }
+    if snap.stderr.len() > 0 {
+        box_separator("stderr", SeparatorKind::Middle, buffer);
+        buffer.boxed_write(&snap.stderr).unwrap();
+    }
     box_separator("", SeparatorKind::Bottom, buffer);
-    buffer.flush().unwrap();
 }
 
 /// Writes a summary of a given snapshot.
-pub fn snap_summary<B: Write>(name: &str, description: Option<&String>, cmd: &str, buffer: &mut B) {
+pub fn snap_summary<B: Write>(
+    description: Option<&String>,
+    cmd: &str,
+    status_code: Option<i32>,
+    buffer: &mut B,
+) {
     let bold = style::Bold;
     let reset = style::Reset;
+    let code = if let Some(code) = status_code {
+        format!("{}", code)
+    } else {
+        String::from("None")
+    };
     buffer
         .boxed_write_str(&format!(
             "\
-            Test:    {}{}{}\n\
-            Command: {}{}{}",
-            bold, name, reset, bold, cmd, reset
+            cmd:  {}{}{}\n\
+            code: {}{}{}",
+            bold, cmd, reset, bold, code, reset
         ))
         .unwrap();
     if let Some(description) = description {
