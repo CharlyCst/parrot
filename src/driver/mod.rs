@@ -274,6 +274,7 @@ impl Context {
                 }
                 if edit.description != snap.description {
                     snap.description = edit.description;
+                    snap.tags = edit.tags;
                     has_changed = true;
                 }
                 if has_changed {
