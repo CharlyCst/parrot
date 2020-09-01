@@ -38,7 +38,7 @@ impl Context {
 
     /// Handles add subcommand.
     pub fn add(&mut self, cmd: &str, name: &Option<String>, yes: bool) {
-        let snap = unwrap_log(cmd::execute(&cmd));
+        let snap = unwrap_log(cmd::execute(&cmd, &self.path));
         let save = if yes {
             true
         } else {
@@ -204,7 +204,7 @@ impl Context {
     /// Runs a single snapshot.
     fn run_snapshot<B: Write>(&self, snap: &mut Snapshot, buffer: &mut B) -> bool {
         let empty_body = Vec::new();
-        let result = unwrap_log(cmd::execute(&snap.cmd));
+        let result = unwrap_log(cmd::execute(&snap.cmd, &self.path));
         let old_stdout = if let Some(ref stdout) = snap.stdout {
             &stdout.body
         } else {
@@ -336,7 +336,7 @@ impl Context {
     /// The command will be run to get the new output, there is no caching for
     /// now.
     fn update_snapshot(&self, snap: &mut Snapshot) -> bool {
-        let result = unwrap_log(cmd::execute(&snap.cmd));
+        let result = unwrap_log(cmd::execute(&snap.cmd, &self.path));
         let mut has_changed = false;
         let new_stdout = util::to_snapshot_data(result.stdout, &snap.name, ".out");
         let new_stderr = util::to_snapshot_data(result.stderr, &snap.name, ".err");
