@@ -1,0 +1,13 @@
+{
+  "snapshots": [
+    {
+      "cmd": "echo \"Hello, world!\"",
+      "name": "fail",
+      "description": "The snapshot has been modified to that this test will fail",
+      "tags": [],
+      "exit_code": 0,
+      "stdout": "fail.out",
+      "stderr": null
+    }
+  ]
+}

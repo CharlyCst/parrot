@@ -21,17 +21,17 @@ pub fn write_diff<B: Write>(old: &Vec<u8>, new: &Vec<u8>, buffer: &mut B) {
             DiffLine::Keep(bytes) => {
                 write!(buffer, "{}│{} ", fg_blue, fg_reset).unwrap();
                 buffer.write_all(bytes).unwrap();
-                write!(buffer, "\n\r").unwrap();
+                write!(buffer, "\r\n").unwrap();
             }
             DiffLine::Delete(bytes) => {
                 write!(buffer, "{}-{} {}", fg_red, fg_reset, bg_color).unwrap();
                 buffer.write_all(bytes).unwrap();
-                write!(buffer, "{}\n\r", bg_reset).unwrap();
+                write!(buffer, "{}\r\n", bg_reset).unwrap();
             }
             DiffLine::Insert(bytes) => {
                 write!(buffer, "{}+{} {}", fg_green, fg_reset, bg_color).unwrap();
                 buffer.write_all(bytes).unwrap();
-                write!(buffer, "{}\n\r", bg_reset).unwrap();
+                write!(buffer, "{}\r\n", bg_reset).unwrap();
             }
         }
     }

@@ -1,0 +1,11 @@
+[38;5;12m┌────[39m [1mfail[m
+[38;5;12m│[39m cmd:  [1mecho "Hello, world!"[m
+[38;5;12m│[39m code: [1m0[m
+[38;5;12m│[39m 
+[38;5;12m│[39m The snapshot has been modified to that this test will fail
+[38;5;12m├────[39m [1mstdout[m
+[38;5;9m-[39m [48;5;0mHello, fail![49m
+[38;5;10m+[39m [48;5;0mHello, world![49m
+[38;5;12m│[39m 
+[38;5;12m└────[39m [1m[m
+[38;5;9m[1mFailure ✗[m[39m

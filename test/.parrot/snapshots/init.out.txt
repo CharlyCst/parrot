@@ -1,0 +1,3 @@
+Parrot has been initialized.
+metadata.json
+snapshots

@@ -21,7 +21,7 @@ pub enum SeparatorKind {
 
 /// Writes a single line to the buffer.
 pub fn writeln<B: Write>(message: &str, buffer: &mut B) {
-    write!(buffer, "{}\n\r", message).unwrap();
+    write!(buffer, "{}\r\n", message).unwrap();
 }
 
 /// Asks a binary question to the user. Return true for yes, false for no.
@@ -99,7 +99,7 @@ pub fn snap_summary<B: Write>(
 pub fn success<B: Write>(buffer: &mut B) {
     write!(
         buffer,
-        "{}{}Success ✓{}{}\n\r",
+        "{}{}Success ✓{}{}\r\n",
         color::Fg(color::LightGreen),
         style::Bold,
         style::Reset,
@@ -112,7 +112,7 @@ pub fn success<B: Write>(buffer: &mut B) {
 pub fn failure<B: Write>(buffer: &mut B) {
     write!(
         buffer,
-        "{}{}Failure ✗{}{}\n\r",
+        "{}{}Failure ✗{}{}\r\n",
         color::Fg(color::LightRed),
         style::Bold,
         style::Reset,
@@ -130,7 +130,7 @@ pub fn box_separator<B: Write>(title: &str, kind: SeparatorKind, buffer: &mut B)
     };
     write!(
         buffer,
-        "{}{}────{} {}{}{}\n\r",
+        "{}{}────{} {}{}{}\r\n",
         color::Fg(color::LightBlue),
         corner,
         color::Fg(color::Reset),
@@ -164,7 +164,7 @@ impl<W: Write> BoxedWriter for W {
         let colorize = color::Fg(color::LightBlue);
         let reset_color = color::Fg(color::Reset);
         for line in string.lines() {
-            write!(self, "{}│{} {}\n\r", colorize, reset_color, line)?;
+            write!(self, "{}│{} {}\r\n", colorize, reset_color, line)?;
         }
         Ok(())
     }

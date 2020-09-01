@@ -82,7 +82,7 @@ impl Repl {
             write!(
                 self.stdout,
                 "{}{}{}",
-                "\n\r".repeat(self.height as usize),
+                "\r\n".repeat(self.height as usize),
                 cursor::Goto(1, term_height - self.height),
                 clear::AfterCursor
             )
@@ -93,7 +93,7 @@ impl Repl {
 
     /// Writes a single line to the output. The REPL must have been suspended.
     pub fn writeln(&mut self, message: &str) {
-        write!(self.stdout, "{}\n\r", message).unwrap();
+        write!(self.stdout, "{}\r\n", message).unwrap();
     }
 
     /// Runs the REPL and returns control once a command has been received.
@@ -177,14 +177,14 @@ impl Repl {
             if pos == view.cursor {
                 write!(
                     self.stdout,
-                    "{}{}{}>{} {} {}{}{}\n\r",
+                    "{}{}{}>{} {} {}{}{}\r\n",
                     bg, bold, red, clear_red, status, snap.name, clear_bold, clear_bg
                 )
                 .unwrap();
             } else {
                 write!(
                     self.stdout,
-                    "{} {} {} {}\n\r",
+                    "{} {} {} {}\r\n",
                     bg, clear_bg, status, snap.name
                 )
                 .unwrap();
@@ -218,7 +218,7 @@ impl Repl {
             bold, blue, clear_blue, self.input, clear_bold
         )
         .unwrap();
-        write!(self.stdout, "\n\r").unwrap();
+        write!(self.stdout, "\r\n").unwrap();
         2 + self.input.chars().count() as u16
     }
 
@@ -323,12 +323,12 @@ impl Repl {
         write!(
             self.stdout,
             "\
-            {top_border}\n\r\
-            {b}│{rc} cmd: {bold}{cmd:<cmd_width$}{rs} {b}│{rc}\n\r\
-            {b}│{rc} {desc_1:<desc_width$} {b}│{rc}\n\r\
-            {b}│{rc} {desc_2:<desc_width$} {b}│{rc}\n\r\
-            {b}│{rc} {desc_3:<desc_width$} {b}│{rc}\n\r\
-            {b}└{x:─<bw$}{g}{x:─<gw$}{y}{x:─<yw$}{r}{x:─<rw$}{y}{x:─<yw$}{g}{x:─<gw$}{b}{x:─<bw$}┘{rc}\n\r\
+            {top_border}\r\n\
+            {b}│{rc} cmd: {bold}{cmd:<cmd_width$}{rs} {b}│{rc}\r\n\
+            {b}│{rc} {desc_1:<desc_width$} {b}│{rc}\r\n\
+            {b}│{rc} {desc_2:<desc_width$} {b}│{rc}\r\n\
+            {b}│{rc} {desc_3:<desc_width$} {b}│{rc}\r\n\
+            {b}└{x:─<bw$}{g}{x:─<gw$}{y}{x:─<yw$}{r}{x:─<rw$}{y}{x:─<yw$}{g}{x:─<gw$}{b}{x:─<bw$}┘{rc}\r\n\
             ",
             top_border = top_border,
             x = "", // Placeholder

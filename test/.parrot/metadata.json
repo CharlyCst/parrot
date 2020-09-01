@@ -1,0 +1,52 @@
+{
+  "snapshots": [
+    {
+      "cmd": "../target/debug/parrot -p empty init && ls empty/.parrot && rm -rf empty/.parrot",
+      "name": "init",
+      "description": "Initialize parrot\n#cli #init",
+      "tags": [
+        "cli",
+        "init"
+      ],
+      "exit_code": 0,
+      "stdout": "init.out",
+      "stderr": null
+    },
+    {
+      "cmd": "echo \"y\" | ../target/debug/parrot -p empty add ls",
+      "name": "no-init",
+      "description": "Test error message when adding without having initialized parrot.\n#cli #init",
+      "tags": [
+        "cli",
+        "init"
+      ],
+      "exit_code": 1,
+      "stdout": "no-init.out",
+      "stderr": null
+    },
+    {
+      "cmd": "../target/debug/parrot -p pass run",
+      "name": "success-run",
+      "description": "A successful run\n#cli #run",
+      "tags": [
+        "cli",
+        "run"
+      ],
+      "exit_code": 0,
+      "stdout": "success-run.out",
+      "stderr": null
+    },
+    {
+      "cmd": "../target/debug/parrot -p fail run",
+      "name": "fail-run",
+      "description": "Run a test expected to fail\n#cli #run",
+      "tags": [
+        "cli",
+        "run"
+      ],
+      "exit_code": 1,
+      "stdout": "fail-run.out",
+      "stderr": null
+    }
+  ]
+}

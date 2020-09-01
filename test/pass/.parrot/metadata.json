@@ -1,0 +1,13 @@
+{
+  "snapshots": [
+    {
+      "cmd": "echo \"Hello, world\"",
+      "name": "dumb-test",
+      "description": "This test will never fail",
+      "tags": [],
+      "exit_code": 0,
+      "stdout": "dumb-test.out",
+      "stderr": null
+    }
+  ]
+}
