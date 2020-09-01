@@ -12,6 +12,7 @@ pub const PARROT_PATH: &'static str = ".parrot";
 const SNAPSHOT_PATH: &'static str = "snapshots";
 const METADATA_PATH: &'static str = "metadata.json";
 
+#[derive(PartialEq, Eq)]
 pub enum SnapshotStatus {
     Failed,
     Passed,

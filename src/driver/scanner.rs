@@ -11,6 +11,9 @@ pub enum Token {
     Show,
     Help,
     Star,
+    Plus,
+    Minus,
+    Tilde,
     Sha(String),
     Lit(String),
     EOS, // End of script
@@ -62,6 +65,18 @@ impl Scanner {
                     self.tokenize();
                     self.tokens.push(Token::Star);
                 }
+                '+' => {
+                    self.tokenize();
+                    self.tokens.push(Token::Plus);
+                }
+                '-' => {
+                    self.tokenize();
+                    self.tokens.push(Token::Minus);
+                }
+                '~' => {
+                    self.tokenize();
+                    self.tokens.push(Token::Tilde);
+                }
                 _ => {
                     if c.is_whitespace() {
                         self.tokenize();
@@ -103,6 +118,9 @@ impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Token::Star => write!(f, "*"),
+            Token::Plus => write!(f, "+"),
+            Token::Minus => write!(f, "-"),
+            Token::Tilde => write!(f, "~"),
             Token::Run => write!(f, "run"),
             Token::EOS => write!(f, "VOID"),
             Token::Edit => write!(f, "edit"),

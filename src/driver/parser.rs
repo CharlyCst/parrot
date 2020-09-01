@@ -14,6 +14,9 @@ pub enum Script {
 pub enum Filter {
     Name(String),
     Tag(String),
+    Passed,
+    Failed,
+    Waiting,
 }
 
 pub enum Target {
@@ -128,6 +131,9 @@ impl Parser {
         match token {
             Token::Lit(name) => Ok(Filter::Name(name.clone())),
             Token::Sha(tag) => Ok(Filter::Tag(tag.clone())),
+            Token::Tilde => Ok(Filter::Waiting),
+            Token::Plus => Ok(Filter::Passed),
+            Token::Minus => Ok(Filter::Failed),
             _ => Err(ParserError::new(
                 "Filter expects a name or a tag as argument.",
             )),
