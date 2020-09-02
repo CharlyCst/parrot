@@ -50,6 +50,17 @@ impl SnapshotsManager {
         Ok(())
     }
 
+    /// Delete a snapshot's datas.
+    pub fn delete(&self, snap: &Snapshot) -> Result<(), Error> {
+        if let Some(stdout) = &snap.stdout {
+            self.delete_snapshot(stdout)?;
+        }
+        if let Some(stderr) = &snap.stderr {
+            self.delete_snapshot(stderr)?;
+        }
+        Ok(())
+    }
+
     /// Read a snapshot from file.
     pub fn get(&self, name: &str) -> Result<Vec<u8>, Error> {
         let mut snap = Vec::new();
@@ -87,13 +98,24 @@ impl SnapshotsManager {
         path.push_str(FILE_EXTENSION);
         let path = self.path.join(path);
         if path.exists() {
-            return Error::from_str("A snapshot with that name already exists.");
+            return Error::from_str("A snapshot with that name already exists");
         }
         let mut file = wrap(fs::File::create(path), "Failed to create a snapshot file")?;
         wrap(
             file.write_all(&snap.body),
             "Faile to write down the snapshot",
         )?;
+        Ok(())
+    }
+
+    /// Delete a single snapshot.
+    fn delete_snapshot(&self, snap: &SnapshotData) -> Result<(), Error> {
+        let mut path = snap.path.to_owned();
+        path.push_str(FILE_EXTENSION);
+        let path = self.path.join(path);
+        if path.exists() && path.is_file() {
+            wrap(fs::remove_file(path), "Failed to delete snapshot data")?;
+        }
         Ok(())
     }
 }

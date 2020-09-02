@@ -6,6 +6,7 @@ pub enum Script {
     Edit,
     Clear,
     Filter(Filter),
+    Delete(Target),
     Update(Target),
     Show(Target),
     Run(Target),
@@ -17,6 +18,7 @@ pub enum Filter {
     Passed,
     Failed,
     Waiting,
+    Deleted,
 }
 
 pub enum Target {
@@ -95,6 +97,14 @@ impl Parser {
                     Ok(Script::Update(target))
                 } else {
                     Err(ParserError::new("Update takes one or zero argument."))
+                }
+            }
+            Token::Delete => {
+                let target = self.parse_target()?;
+                if self.is_terminator() {
+                    Ok(Script::Delete(target))
+                } else {
+                    Err(ParserError::new("Delete takes one or zero argument."))
                 }
             }
             Token::Show => {

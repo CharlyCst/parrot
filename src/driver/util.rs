@@ -24,6 +24,7 @@ pub fn to_snapshot(
         stdout,
         stderr,
         status: SnapshotStatus::Waiting,
+        deleted: false,
     }
 }
 

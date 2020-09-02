@@ -28,6 +28,7 @@ pub struct Snapshot {
     pub description: Option<String>,
     pub tags: Vec<String>,
     pub status: SnapshotStatus,
+    pub deleted: bool,
 }
 
 #[derive(PartialEq, Eq)]
@@ -94,6 +95,23 @@ impl DataManager {
         Ok(())
     }
 
+    /// Run the snapshot GC: eletes all snapshot marked as deleted, then 
+    /// persist metadatas.
+    ///
+    /// Warning: This will borrow all snapshots to procede.
+    pub fn gc_snapshots(&self) -> Result<(), Error> {
+        if let Some(snaps) = &self.snaps {
+            for snap in snaps {
+                let snap = snap.borrow();
+                if snap.deleted {
+                    self.snap_manager.delete(&snap)?;
+                }
+            }
+            self.metadata_manager.persist(&snaps)?;
+        }
+        Ok(())
+    }
+
     /// Persists the snapshots' metadata to file system, should be used after 
     /// any snapshot metadata update update.
     pub fn persist_metadata(&self) -> Result<(), Error> {
@@ -145,6 +163,7 @@ impl DataManager {
                 description: snap.description,
                 tags: snap.tags,
                 status: SnapshotStatus::Waiting,
+                deleted: false,
             })))
         }
         self.snaps = Some(snaps);

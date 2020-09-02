@@ -49,6 +49,9 @@ impl MetadataManager {
         let mut snapshots = Vec::with_capacity(snaps.len());
         for snap in snaps {
             let snap = snap.borrow();
+            if snap.deleted {
+                continue;
+            }
             let stdout = match &snap.stdout {
                 Some(data) => Some(data.path.clone()),
                 None => None,

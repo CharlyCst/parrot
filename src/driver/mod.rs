@@ -7,7 +7,7 @@ use crate::error::{unwrap_log, Error};
 use crate::term;
 use crate::term::{BoxedWriter, Input, SeparatorKind};
 
-use parser::{Script, Target};
+use parser::{Filter, Script, Target};
 use util::*;
 
 mod cmd;
@@ -111,6 +111,9 @@ impl Context {
                             Script::Run(target) => self.execute_run(&mut repl, &view, target),
                             Script::Show(target) => self.execute_show(&mut repl, &view, target),
                             Script::Update(target) => self.execute_update(&mut repl, &view, target),
+                            Script::Delete(target) => {
+                                self.execute_delete(&mut repl, &mut view, target)
+                            }
                         },
                         Err(error) => {
                             repl.suspend();
@@ -188,6 +191,36 @@ impl Context {
                 }
             }
         }
+        repl.restore();
+    }
+
+    /// Executes the delete command.
+    fn execute_delete(&self, repl: &mut term::Repl, view: &mut View, target: Target) {
+        repl.suspend();
+        match target {
+            Target::Selected => match view.get_selected_mut() {
+                Some(mut snap) => {
+                    snap.deleted = true;
+                    repl.writeln("Deleted 1 snapshot");
+                }
+                None => repl.writeln("No snapshot to delete."),
+            },
+            Target::All => {
+                let mut count = 0;
+                for snap in view.get_view() {
+                    let mut snap = snap.borrow_mut();
+                    snap.deleted = true;
+                    count += 1;
+                }
+                if count > 1 {
+                    repl.writeln(&format!("Deleted {} snapshots.", count));
+                } else {
+                    repl.writeln(&format!("Deleted {} snapshot.", count));
+                }
+            }
+        }
+        unwrap_log(self.data.gc_snapshots());
+        view.apply_filter(Filter::Deleted);
         repl.restore();
     }
 

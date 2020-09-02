@@ -70,7 +70,6 @@ impl Repl {
     /// The repl should not be use while suspended.
     pub fn suspend(&mut self) {
         self.clear();
-        self.stdout.flush().unwrap();
     }
 
     /// Restore REPL mode, the repl can be re-started safely.

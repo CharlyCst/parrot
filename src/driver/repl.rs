@@ -2,7 +2,7 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use super::parser::Filter;
-use crate::data::{ Snapshot, SnapshotStatus };
+use crate::data::{Snapshot, SnapshotStatus};
 
 /// Represents a view of the snapshots after filters have been applied.
 pub struct View {
@@ -107,6 +107,7 @@ impl View {
             Filter::Waiting => self.apply_status_filter(SnapshotStatus::Waiting),
             Filter::Passed => self.apply_status_filter(SnapshotStatus::Passed),
             Filter::Failed => self.apply_status_filter(SnapshotStatus::Failed),
+            Filter::Deleted => self.apply_deleted_filter(),
         }
         self.update_window();
     }
@@ -115,7 +116,9 @@ impl View {
     pub fn clear_filters(&mut self) {
         let mut view = Vec::with_capacity(self.data.len());
         for snap in &self.data {
-            view.push(Rc::clone(snap));
+            if snap.borrow().deleted == false {
+                view.push(Rc::clone(snap));
+            }
         }
         self.view = view;
         self.update_window();
@@ -168,6 +171,16 @@ impl View {
         let old_view = std::mem::replace(&mut self.view, Vec::new());
         for snap in old_view {
             if snap.borrow().status == status {
+                self.view.push(snap);
+            }
+        }
+    }
+
+    /// Applies the deleted filter.
+    fn apply_deleted_filter(&mut self) {
+        let old_view = std::mem::replace(&mut self.view, Vec::new());
+        for snap in old_view {
+            if snap.borrow().deleted == false {
                 self.view.push(snap);
             }
         }
