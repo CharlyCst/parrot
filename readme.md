@@ -35,7 +35,11 @@ This project is still under development, it may have rough corners and the inter
 
 ## Installation
 
-TODO
+You first need to [install Rust](https://www.rust-lang.org/tools/install), then you can install **parrot** with 
+
+```sh
+cargo install parrot-snap
+```
 
 ## Usage
 
