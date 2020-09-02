@@ -133,8 +133,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ac6fe3538f701e339953a3ebbe4f39941aababa8a3f6964635b24ab526daeac"
 
 [[package]]
-name = "parrot"
-version = "0.1.0"
+name = "parrot-snap"
+version = "0.0.1"
 dependencies = [
  "clap",
  "rand",
