@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 use super::Snapshot;
 use crate::error::{wrap, Error};
@@ -76,7 +76,10 @@ impl MetadataManager {
 
     /// Reads and return metadatas from file system.
     pub fn get_metadata(&self) -> Result<Metadatas, Error> {
-        let file = wrap(fs::File::open(&self.path), "Could not fine metadata.json.")?;
+        let file = wrap(
+            fs::File::open(&self.path),
+            "Could not find snapshots data, try running `parrot init` first.",
+        )?;
         let metadatas = wrap(
             serde_json::from_reader(file),
             "Failed to parse metadata.json.",

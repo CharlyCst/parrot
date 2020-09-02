@@ -100,7 +100,7 @@ impl SnapshotsManager {
         if path.exists() {
             return Error::from_str("A snapshot with that name already exists");
         }
-        let mut file = wrap(fs::File::create(path), "Failed to create a snapshot file")?;
+        let mut file = wrap(fs::File::create(path), "Failed to create a snapshot file, try using `parrot init` first.")?;
         wrap(
             file.write_all(&snap.body),
             "Faile to write down the snapshot",

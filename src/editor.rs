@@ -34,7 +34,7 @@ fn open<P: AsRef<Path>>(path: P, name: &str, description: &str, cmd: &str) -> Re
     file_path.push(FILE_NAME);
     let mut file = wrap(
         File::create(&file_path),
-        "Could not create description file",
+        "Could not create description file, try using `parrot init` first.",
     )?;
     wrap(
         write!(
