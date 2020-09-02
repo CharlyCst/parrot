@@ -13,6 +13,10 @@ A command-line snapshot testing tool for your scripts and CLI programs.
 - Interactive REPL to navigate and interact with your snapshots.
 - [Soon] Can easily be integrated in your CI.
 
+## Disclaimer
+
+This project is still under development, it may have rough corners and the interface may change overtime. Don't hesitate to try it for small projects, but don't rely solely on **parrot** for your production grade software test suite.
+
 ## Table of contents
 
 - [Installation](#installation)
@@ -25,6 +29,7 @@ A command-line snapshot testing tool for your scripts and CLI programs.
   - [Show](#show-s)
   - [Edit](#edit-e)
   - [Update](#update-u)
+  - [Delete](#delete-d)
 - [Customization](#customization)
 - [Current limitations](#current-limitations)
 
@@ -111,7 +116,7 @@ clear
 c
 ```
 
-Remove all filters.
+Remove all filters from the current view.
 
 #### Run (r)
 
@@ -151,6 +156,16 @@ u *
 ```
 
 Update the selected snapshot by running the command and saving the new outputs. Update all the snapshots in the current view if `*` is passed as argument.
+
+#### Delete (d)
+
+```
+delete
+d
+d *
+```
+
+Delete the selected snapshot, or all snapshots in the current view if `*` is passed as argument.
 
 ## Customization
 
