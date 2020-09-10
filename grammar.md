@@ -6,7 +6,7 @@ This document describes the grammar of the **parrot** scripting language.
 script  -> command
 command -> quit  | help   | filter
            clear | run    | show
-	   edit  | update | delete
+           edit  | update | delete
 
 quit    -> 'q' | 'quit'
 help    -> 'h' | 'help'
