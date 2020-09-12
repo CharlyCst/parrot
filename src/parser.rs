@@ -15,7 +15,7 @@ pub enum CommandKeyword {
     Edit,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Command {
     Quit,
     Clear,
@@ -33,7 +33,7 @@ struct Error<I> {
 enum ErrorKind<I> {
     Nom(I, nom::error::ErrorKind),
     UnknownCommand,
-    TooManyArgument(Command),
+    TooManyArguments(Command),
 }
 
 /// Custom IResult
@@ -56,8 +56,18 @@ fn peek_separator(i: &str) -> CResult<&str, ()> {
     }
 }
 
-/// Ensures that no argument remains.
-//fn no_args_left(i: &str, cmd: Command) -> IResult<>
+/// Ensures that no arguments remain.
+/// Return `cmd` if no arguments are found, a TooManyArgument error otherwise.
+fn no_args_left(i: &str, cmd: Command) -> CResult<&str, Command> {
+    let (i, _) = whitespaces(i)?;
+
+    // For now only a single command is allowed, expects EOF
+    if i.len() > 0 {
+        Err(Error::custom(ErrorKind::TooManyArguments(cmd)))
+    } else {
+        Ok((i, cmd))
+    }
+}
 
 /// Returns a command keyword parser.
 /// The parser will match either `cmd_tag` or `cmd_shorthant` and return `keyword`.
@@ -82,10 +92,10 @@ fn command(i: &str) -> CResult<&str, Command> {
     let keyword = alt((quit, clear, help, edit));
     match keyword(i) {
         Ok((i, keyword)) => match keyword {
-            CommandKeyword::Quit => Ok((i, Command::Quit)),
-            CommandKeyword::Clear => Ok((i, Command::Clear)),
-            CommandKeyword::Help => Ok((i, Command::Help)),
-            CommandKeyword::Edit => Ok((i, Command::Edit)),
+            CommandKeyword::Quit => no_args_left(i, Command::Quit),
+            CommandKeyword::Clear => no_args_left(i, Command::Clear),
+            CommandKeyword::Help => no_args_left(i, Command::Help),
+            CommandKeyword::Edit => no_args_left(i, Command::Edit),
         },
         Err(err) => Err(Error::custom_with_backtrace(ErrorKind::UnknownCommand, err)),
     }
@@ -161,6 +171,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_no_args_left() {
+        let cmd = Command::Quit;
+        let error = Err(Error::custom(ErrorKind::TooManyArguments(cmd.clone())));
+
+        // Should succeed
+        assert_eq!(no_args_left("", cmd.clone()), Ok(("", cmd.clone())));
+        assert_eq!(no_args_left("    ", cmd.clone()), Ok(("", cmd.clone())));
+        assert_eq!(no_args_left(" \t \n", cmd.clone()), Ok(("", cmd.clone())));
+
+        // Should return an error
+        assert_eq!(no_args_left("+", cmd.clone()), error);
+        assert_eq!(no_args_left("  arg", cmd.clone()), error);
+        assert_eq!(no_args_left("#tag ", cmd.clone()), error);
+        assert_eq!(no_args_left(" ~ ", cmd.clone()), error);
+    }
+
+    #[test]
     fn test_command_keyword() {
         let quit = command_keyword("quit", "q", CommandKeyword::Quit);
 
@@ -186,10 +213,13 @@ mod tests {
         assert_eq!(command("help"), Ok(("", Command::Help)));
         assert_eq!(command("e"), Ok(("", Command::Edit)));
         assert_eq!(command("edit"), Ok(("", Command::Edit)));
-        assert_eq!(command(" \t \n\rquit "), Ok((" ", Command::Quit)));
+        assert_eq!(command(" \t \n\rquit "), Ok(("", Command::Quit)));
 
         // Should return an error
         assert_eq!(command("qt"), Err(Error::custom(ErrorKind::UnknownCommand)));
-        //assert_eq!(command(" \t \n\rquit arg"), Ok(("+ ", Command::Quit)));
+        assert_eq!(
+            command("\rquit arg"),
+            Err(Error::custom(ErrorKind::TooManyArguments(Command::Quit)))
+        );
     }
 }
