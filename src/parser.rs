@@ -13,6 +13,16 @@ pub enum CommandKeyword {
     Clear,
     Help,
     Edit,
+    Run,
+    Show,
+    Update,
+    Delete,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum Target {
+    Selected,
+    All,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -21,6 +31,10 @@ pub enum Command {
     Clear,
     Help,
     Edit,
+    Run(Target),
+    Show(Target),
+    Update(Target),
+    Delete(Target),
 }
 
 #[derive(Debug)]
@@ -34,6 +48,7 @@ enum ErrorKind<I> {
     Nom(I, nom::error::ErrorKind),
     UnknownCommand,
     TooManyArguments(Command),
+    UnexpectedArgument(CommandKeyword),
 }
 
 /// Custom IResult
@@ -56,16 +71,43 @@ fn peek_separator(i: &str) -> CResult<&str, ()> {
     }
 }
 
+/// Parses a command terminator.
+/// For now the only command terminator is EOF.
+fn command_terminator(i: &str) -> CResult<&str, &str> {
+    if i.len() == 0 {
+        Ok((i, ""))
+    } else {
+        Err(Error::recoverable(ErrorKind::Nom(
+            i,
+            nom::error::ErrorKind::NoneOf,
+        )))
+    }
+}
+
 /// Ensures that no arguments remain.
 /// Return `cmd` if no arguments are found, a TooManyArgument error otherwise.
 fn no_args_left(i: &str, cmd: Command) -> CResult<&str, Command> {
     let (i, _) = whitespaces(i)?;
+    match command_terminator(i) {
+        Ok((i, _)) => Ok((i, cmd)),
+        Err(_) => Err(Error::custom(ErrorKind::TooManyArguments(cmd))),
+    }
+}
 
-    // For now only a single command is allowed, expects EOF
-    if i.len() > 0 {
-        Err(Error::custom(ErrorKind::TooManyArguments(cmd)))
-    } else {
-        Ok((i, cmd))
+/// Parses a target, that is either no argument or '*'.
+/// If no argument is found, the target is assumed to be 'Selected'.
+fn target(i: &str, cmd: CommandKeyword) -> CResult<&str, Target> {
+    let (i, _) = whitespaces(i)?;
+    let selected = value(Target::Selected, command_terminator);
+    let all = value(Target::All, tag("*"));
+    let target = alt((all, selected));
+    let target = preceded(whitespaces, target);
+    match target(i) {
+        Ok(t) => Ok(t),
+        Err(err) => Err(Error::custom_with_backtrace(
+            ErrorKind::UnexpectedArgument(cmd),
+            err,
+        )),
     }
 }
 
@@ -89,13 +131,33 @@ fn command(i: &str) -> CResult<&str, Command> {
     let clear = command_keyword("clear", "c", CommandKeyword::Clear);
     let help = command_keyword("help", "h", CommandKeyword::Help);
     let edit = command_keyword("edit", "e", CommandKeyword::Edit);
-    let keyword = alt((quit, clear, help, edit));
+    let run = command_keyword("run", "r", CommandKeyword::Run);
+    let show = command_keyword("show", "s", CommandKeyword::Show);
+    let update = command_keyword("update", "u", CommandKeyword::Update);
+    let delete = command_keyword("delete", "d", CommandKeyword::Delete);
+    let keyword = alt((quit, clear, help, edit, run, show, update, delete));
     match keyword(i) {
         Ok((i, keyword)) => match keyword {
             CommandKeyword::Quit => no_args_left(i, Command::Quit),
             CommandKeyword::Clear => no_args_left(i, Command::Clear),
             CommandKeyword::Help => no_args_left(i, Command::Help),
             CommandKeyword::Edit => no_args_left(i, Command::Edit),
+            CommandKeyword::Run => {
+                let (i, t) = target(i, CommandKeyword::Run)?;
+                no_args_left(i, Command::Run(t))
+            }
+            CommandKeyword::Show => {
+                let (i, t) = target(i, CommandKeyword::Show)?;
+                no_args_left(i, Command::Show(t))
+            }
+            CommandKeyword::Update => {
+                let (i, t) = target(i, CommandKeyword::Update)?;
+                no_args_left(i, Command::Update(t))
+            }
+            CommandKeyword::Delete => {
+                let (i, t) = target(i, CommandKeyword::Delete)?;
+                no_args_left(i, Command::Delete(t))
+            }
         },
         Err(err) => Err(Error::custom_with_backtrace(ErrorKind::UnknownCommand, err)),
     }
@@ -108,6 +170,10 @@ impl std::fmt::Display for Command {
             Command::Clear => write!(f, "clear"),
             Command::Help => write!(f, "help"),
             Command::Edit => write!(f, "edit"),
+            Command::Run(_) => write!(f, "run"),
+            Command::Show(_) => write!(f, "show"),
+            Command::Update(_) => write!(f, "update"),
+            Command::Delete(_) => write!(f, "delete"),
         }
     }
 }
@@ -116,6 +182,14 @@ impl<I> Error<I> {
     /// Builds a custom (failure) error.
     fn custom(kind: ErrorKind<I>) -> nom::Err<Self> {
         nom::Err::Failure(Self {
+            kind,
+            backtrace: Vec::new(),
+        })
+    }
+
+    /// Build a custom (recoverable) error.
+    fn recoverable(kind: ErrorKind<I>) -> nom::Err<Self> {
+        nom::Err::Error(Self {
             kind,
             backtrace: Vec::new(),
         })
@@ -188,6 +262,26 @@ mod tests {
     }
 
     #[test]
+    fn test_target() {
+        //Should succeed
+        assert_eq!(target("", CommandKeyword::Run), Ok(("", Target::Selected)));
+        assert_eq!(
+            target("  ", CommandKeyword::Run),
+            Ok(("", Target::Selected))
+        );
+        assert_eq!(target("*", CommandKeyword::Run), Ok(("", Target::All)));
+        assert_eq!(target("  * ", CommandKeyword::Run), Ok((" ", Target::All)));
+
+        // Should return an error
+        assert_eq!(
+            target("a *", CommandKeyword::Run),
+            Err(Error::custom(ErrorKind::UnexpectedArgument(
+                CommandKeyword::Run
+            )))
+        )
+    }
+
+    #[test]
     fn test_command_keyword() {
         let quit = command_keyword("quit", "q", CommandKeyword::Quit);
 
@@ -198,7 +292,7 @@ mod tests {
 
         // Should return an error
         if let Ok((i, _)) = quit("qt") {
-            panic!(format!("Should have fail matching 'quit', got: {}", i))
+            panic!(format!("Should have failed matching 'quit', got: {}", i));
         }
     }
 
@@ -214,12 +308,27 @@ mod tests {
         assert_eq!(command("e"), Ok(("", Command::Edit)));
         assert_eq!(command("edit"), Ok(("", Command::Edit)));
         assert_eq!(command(" \t \n\rquit "), Ok(("", Command::Quit)));
+        assert_eq!(command("run"), Ok(("", Command::Run(Target::Selected))));
+        assert_eq!(command("run *"), Ok(("", Command::Run(Target::All))));
+        assert_eq!(command("r*"), Ok(("", Command::Run(Target::All))));
+        assert_eq!(command("show"), Ok(("", Command::Show(Target::Selected))));
+        assert_eq!(command("s*"), Ok(("", Command::Show(Target::All))));
+        assert_eq!(command("update"), Ok(("", Command::Update(Target::Selected))));
+        assert_eq!(command("u*"), Ok(("", Command::Update(Target::All))));
+        assert_eq!(command("delete"), Ok(("", Command::Delete(Target::Selected))));
+        assert_eq!(command("d*"), Ok(("", Command::Delete(Target::All))));
 
         // Should return an error
         assert_eq!(command("qt"), Err(Error::custom(ErrorKind::UnknownCommand)));
         assert_eq!(
-            command("\rquit arg"),
+            command("quit *"),
             Err(Error::custom(ErrorKind::TooManyArguments(Command::Quit)))
+        );
+        assert_eq!(
+            command("run * *"),
+            Err(Error::custom(ErrorKind::TooManyArguments(Command::Run(
+                Target::All
+            ))))
         );
     }
 }
