@@ -9,6 +9,7 @@ mod driver;
 mod editor;
 mod error;
 mod term;
+mod parser;
 
 fn main() {
     let config = cli::parse();

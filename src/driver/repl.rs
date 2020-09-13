@@ -1,7 +1,7 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
-use super::parser::Filter;
+use crate::parser::Filter;
 use crate::data::{Snapshot, SnapshotStatus};
 
 /// Represents a view of the snapshots after filters have been applied.
