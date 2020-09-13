@@ -6,14 +6,13 @@ use crate::editor;
 use crate::error::{unwrap_log, Error};
 use crate::term;
 use crate::term::{BoxedWriter, Input, SeparatorKind};
+use crate::parser;
 
-use parser::{Filter, Script, Target};
+use parser::{Filter, Command, Target, parse};
 use util::*;
 
 mod cmd;
-mod parser;
 mod repl;
-mod scanner;
 mod util;
 
 pub use repl::View;
@@ -92,32 +91,29 @@ impl Context {
         let stdout = stdout();
         let stdin = stdin();
         let mut repl = term::Repl::new(stdin, stdout);
-        let mut scanner = scanner::Scanner::new();
-        let mut parser = parser::Parser::new();
         loop {
             match repl.run(&view) {
                 Input::Up => view.up(),
                 Input::Down => view.down(),
                 Input::Quit => break,
                 Input::Command(cmd) => {
-                    let tokens = scanner.scan(cmd);
-                    match parser.parse(tokens) {
-                        Ok(script) => match script {
-                            Script::Quit => break,
-                            Script::Help => self.execute_help(&mut repl),
-                            Script::Edit => self.execute_edit(&mut repl, &view),
-                            Script::Clear => view.clear_filters(),
-                            Script::Filter(args) => view.apply_filter(args),
-                            Script::Run(target) => self.execute_run(&mut repl, &view, target),
-                            Script::Show(target) => self.execute_show(&mut repl, &view, target),
-                            Script::Update(target) => self.execute_update(&mut repl, &view, target),
-                            Script::Delete(target) => {
+                    match parse(&cmd) {
+                        Ok(cmd) => match cmd {
+                            Command::Quit => break,
+                            Command::Help => self.execute_help(&mut repl),
+                            Command::Edit => self.execute_edit(&mut repl, &view),
+                            Command::Clear => view.clear_filters(),
+                            Command::Filter(args) => view.apply_filter(args),
+                            Command::Run(target) => self.execute_run(&mut repl, &view, target),
+                            Command::Show(target) => self.execute_show(&mut repl, &view, target),
+                            Command::Update(target) => self.execute_update(&mut repl, &view, target),
+                            Command::Delete(target) => {
                                 self.execute_delete(&mut repl, &mut view, target)
                             }
                         },
                         Err(error) => {
                             repl.suspend();
-                            repl.writeln(&error.message);
+                            repl.writeln(&error);
                             repl.restore();
                         }
                     }

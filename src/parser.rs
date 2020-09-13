@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::one_of;
@@ -8,7 +6,7 @@ use nom::sequence::{preceded, terminated};
 use nom::IResult;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub enum CommandKeyword {
+enum CommandKeyword {
     Quit,
     Clear,
     Help,
@@ -32,7 +30,8 @@ pub enum Filter {
     Tag(String),
     Passed,
     Failed,
-    Wainting,
+    Waiting,
+    Deleted,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -129,7 +128,7 @@ fn target(i: &str, cmd: CommandKeyword) -> CResult<&str, Target> {
 
 /// Parses a filter argument.
 fn filter_arg(i: &str) -> CResult<&str, Filter> {
-    let waiting = value(Filter::Wainting, tag("~"));
+    let waiting = value(Filter::Waiting, tag("~"));
     let passed = value(Filter::Passed, tag("+"));
     let failed = value(Filter::Failed, tag("-"));
     let hashtag = map(hashtag, move |t| Filter::Tag(t.to_owned()));
@@ -202,6 +201,25 @@ fn command(i: &str) -> CResult<&str, Command> {
     }
 }
 
+pub fn parse(input: &str) -> Result<Command, String> {
+    match command(input) {
+        Ok((_, cmd)) => Ok(cmd),
+        Err(err) => {
+            let err = match err {
+                nom::Err::Incomplete(_) => panic!("Internal error: should use 'complete' version of nom parsers."),
+                nom::Err::Error(err) => err,
+                nom::Err::Failure(err) => err,
+            };
+            match err.kind {
+                ErrorKind::Nom(_, _) => Err(String::from("Failed to parse command")),
+                ErrorKind::UnknownCommand => Err(String::from("Unknown command")),
+                ErrorKind::UnexpectedArgument(cmd) => Err(format!("Unexpected argument in {}", cmd)),
+                ErrorKind::TooManyArguments(cmd) => Err(format!("Too many arguments in {}", cmd)),
+            }
+        }
+    }
+}
+
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -214,6 +232,22 @@ impl std::fmt::Display for Command {
             Command::Update(_) => write!(f, "update"),
             Command::Delete(_) => write!(f, "delete"),
             Command::Filter(_) => write!(f, "filter"),
+        }
+    }
+}
+
+impl std::fmt::Display for CommandKeyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CommandKeyword::Quit => write!(f, "quit"),
+            CommandKeyword::Clear => write!(f, "clear"),
+            CommandKeyword::Help => write!(f, "help"),
+            CommandKeyword::Edit => write!(f, "edit"),
+            CommandKeyword::Run => write!(f, "run"),
+            CommandKeyword::Show => write!(f, "show"),
+            CommandKeyword::Update => write!(f, "update"),
+            CommandKeyword::Delete => write!(f, "delete"),
+            CommandKeyword::Filter => write!(f, "filter"),
         }
     }
 }
@@ -325,7 +359,7 @@ mod tests {
         assert_eq!(filter_arg("test-2"), Ok(("", Filter::Name(String::from("test-2")))));
         assert_eq!(filter_arg("+"), Ok(("", Filter::Passed)));
         assert_eq!(filter_arg("-"), Ok(("", Filter::Failed)));
-        assert_eq!(filter_arg("~"), Ok(("", Filter::Wainting)));
+        assert_eq!(filter_arg("~"), Ok(("", Filter::Waiting)));
         assert_eq!(filter_arg(" #test "), Ok((" ", Filter::Tag(String::from("test")))));
 
         // Should return an error
@@ -377,7 +411,7 @@ mod tests {
         assert_eq!(command("filter-"), Ok(("", Command::Filter(Filter::Failed))));
         assert_eq!(command("f-"), Ok(("", Command::Filter(Filter::Failed))));
         assert_eq!(command("f+"), Ok(("", Command::Filter(Filter::Passed))));
-        assert_eq!(command("f~"), Ok(("", Command::Filter(Filter::Wainting))));
+        assert_eq!(command("f~"), Ok(("", Command::Filter(Filter::Waiting))));
         assert_eq!(
             command("f#tag"),
             Ok(("", Command::Filter(Filter::Tag(String::from("tag")))))
