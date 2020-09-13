@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while};
+use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::one_of;
-use nom::combinator::{peek, value};
+use nom::combinator::{map, peek, value};
 use nom::sequence::{preceded, terminated};
 use nom::IResult;
 
@@ -17,12 +17,22 @@ pub enum CommandKeyword {
     Show,
     Update,
     Delete,
+    Filter,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Target {
     Selected,
     All,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum Filter {
+    Name(String),
+    Tag(String),
+    Passed,
+    Failed,
+    Wainting,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -35,6 +45,7 @@ pub enum Command {
     Show(Target),
     Update(Target),
     Delete(Target),
+    Filter(Filter),
 }
 
 #[derive(Debug)]
@@ -63,7 +74,7 @@ fn whitespaces(i: &str) -> CResult<&str, &str> {
 /// Looks for a separator, does not consume it.
 /// EOF counts as a separator.
 fn peek_separator(i: &str) -> CResult<&str, ()> {
-    let chars = " \t\r\n+-*~";
+    let chars = " \t\r\n#+-*~";
     if i.len() == 0 {
         Ok((i, ()))
     } else {
@@ -77,11 +88,19 @@ fn command_terminator(i: &str) -> CResult<&str, &str> {
     if i.len() == 0 {
         Ok((i, ""))
     } else {
-        Err(Error::recoverable(ErrorKind::Nom(
-            i,
-            nom::error::ErrorKind::NoneOf,
-        )))
+        Err(Error::recoverable(ErrorKind::Nom(i, nom::error::ErrorKind::NoneOf)))
     }
+}
+
+/// Parses a name.
+fn name(i: &str) -> CResult<&str, &str> {
+    let is_name = move |c: char| c.is_alphanumeric() || c == '-' || c == '_';
+    take_while1(is_name)(i)
+}
+
+/// Parses a hashtag.
+fn hashtag(i: &str) -> CResult<&str, &str> {
+    preceded(tag("#"), name)(i)
 }
 
 /// Ensures that no arguments remain.
@@ -104,8 +123,23 @@ fn target(i: &str, cmd: CommandKeyword) -> CResult<&str, Target> {
     let target = preceded(whitespaces, target);
     match target(i) {
         Ok(t) => Ok(t),
+        Err(err) => Err(Error::custom_with_backtrace(ErrorKind::UnexpectedArgument(cmd), err)),
+    }
+}
+
+/// Parses a filter argument.
+fn filter_arg(i: &str) -> CResult<&str, Filter> {
+    let waiting = value(Filter::Wainting, tag("~"));
+    let passed = value(Filter::Passed, tag("+"));
+    let failed = value(Filter::Failed, tag("-"));
+    let hashtag = map(hashtag, move |t| Filter::Tag(t.to_owned()));
+    let name = map(name, move |n| Filter::Name(n.to_owned()));
+    let parser = alt((waiting, passed, failed, hashtag, name));
+    let parser = preceded(whitespaces, parser);
+    match parser(i) {
+        Ok(f) => Ok(f),
         Err(err) => Err(Error::custom_with_backtrace(
-            ErrorKind::UnexpectedArgument(cmd),
+            ErrorKind::UnexpectedArgument(CommandKeyword::Filter),
             err,
         )),
     }
@@ -135,7 +169,8 @@ fn command(i: &str) -> CResult<&str, Command> {
     let show = command_keyword("show", "s", CommandKeyword::Show);
     let update = command_keyword("update", "u", CommandKeyword::Update);
     let delete = command_keyword("delete", "d", CommandKeyword::Delete);
-    let keyword = alt((quit, clear, help, edit, run, show, update, delete));
+    let filter = command_keyword("filter", "f", CommandKeyword::Filter);
+    let keyword = alt((quit, clear, help, edit, run, show, update, delete, filter));
     match keyword(i) {
         Ok((i, keyword)) => match keyword {
             CommandKeyword::Quit => no_args_left(i, Command::Quit),
@@ -158,6 +193,10 @@ fn command(i: &str) -> CResult<&str, Command> {
                 let (i, t) = target(i, CommandKeyword::Delete)?;
                 no_args_left(i, Command::Delete(t))
             }
+            CommandKeyword::Filter => {
+                let (i, f) = filter_arg(i)?;
+                no_args_left(i, Command::Filter(f))
+            }
         },
         Err(err) => Err(Error::custom_with_backtrace(ErrorKind::UnknownCommand, err)),
     }
@@ -174,6 +213,7 @@ impl std::fmt::Display for Command {
             Command::Show(_) => write!(f, "show"),
             Command::Update(_) => write!(f, "update"),
             Command::Delete(_) => write!(f, "delete"),
+            Command::Filter(_) => write!(f, "filter"),
         }
     }
 }
@@ -198,9 +238,9 @@ impl<I> Error<I> {
     /// Builds a custom (failure) error, keeps the backtrace of a previous error.
     fn custom_with_backtrace(kind: ErrorKind<I>, err: nom::Err<Self>) -> nom::Err<Self> {
         let err = match err {
-            nom::Err::Incomplete(_) => panic!(
-                "Internal error: parser must use the 'complete' version of nom's combinators."
-            ),
+            nom::Err::Incomplete(_) => {
+                panic!("Internal error: parser must use the 'complete' version of nom's combinators.")
+            }
             nom::Err::Error(err) => err,
             nom::Err::Failure(err) => err,
         };
@@ -263,22 +303,36 @@ mod tests {
 
     #[test]
     fn test_target() {
-        //Should succeed
-        assert_eq!(target("", CommandKeyword::Run), Ok(("", Target::Selected)));
-        assert_eq!(
-            target("  ", CommandKeyword::Run),
-            Ok(("", Target::Selected))
-        );
-        assert_eq!(target("*", CommandKeyword::Run), Ok(("", Target::All)));
-        assert_eq!(target("  * ", CommandKeyword::Run), Ok((" ", Target::All)));
+        let cmd = CommandKeyword::Run;
+
+        // Should succeed
+        assert_eq!(target("", cmd.clone()), Ok(("", Target::Selected)));
+        assert_eq!(target("  ", cmd.clone()), Ok(("", Target::Selected)));
+        assert_eq!(target("*", cmd.clone()), Ok(("", Target::All)));
+        assert_eq!(target("  * ", cmd.clone()), Ok((" ", Target::All)));
 
         // Should return an error
         assert_eq!(
-            target("a *", CommandKeyword::Run),
-            Err(Error::custom(ErrorKind::UnexpectedArgument(
-                CommandKeyword::Run
-            )))
+            target("a *", cmd.clone()),
+            Err(Error::custom(ErrorKind::UnexpectedArgument(CommandKeyword::Run)))
         )
+    }
+
+    #[test]
+    fn test_filter_arg() {
+        // Should succeed
+        assert_eq!(filter_arg("#test"), Ok(("", Filter::Tag(String::from("test")))));
+        assert_eq!(filter_arg("test-2"), Ok(("", Filter::Name(String::from("test-2")))));
+        assert_eq!(filter_arg("+"), Ok(("", Filter::Passed)));
+        assert_eq!(filter_arg("-"), Ok(("", Filter::Failed)));
+        assert_eq!(filter_arg("~"), Ok(("", Filter::Wainting)));
+        assert_eq!(filter_arg(" #test "), Ok((" ", Filter::Tag(String::from("test")))));
+
+        // Should return an error
+        assert_eq!(
+            filter_arg("@test"),
+            Err(Error::custom(ErrorKind::UnexpectedArgument(CommandKeyword::Filter)))
+        );
     }
 
     #[test]
@@ -298,6 +352,9 @@ mod tests {
 
     #[test]
     fn test_command() {
+        let ts = Target::Selected;
+        let ta = Target::All;
+
         // Should succeed
         assert_eq!(command("q"), Ok(("", Command::Quit)));
         assert_eq!(command("quit"), Ok(("", Command::Quit)));
@@ -313,10 +370,22 @@ mod tests {
         assert_eq!(command("r*"), Ok(("", Command::Run(Target::All))));
         assert_eq!(command("show"), Ok(("", Command::Show(Target::Selected))));
         assert_eq!(command("s*"), Ok(("", Command::Show(Target::All))));
-        assert_eq!(command("update"), Ok(("", Command::Update(Target::Selected))));
-        assert_eq!(command("u*"), Ok(("", Command::Update(Target::All))));
-        assert_eq!(command("delete"), Ok(("", Command::Delete(Target::Selected))));
-        assert_eq!(command("d*"), Ok(("", Command::Delete(Target::All))));
+        assert_eq!(command("update"), Ok(("", Command::Update(ts.clone()))));
+        assert_eq!(command("u*"), Ok(("", Command::Update(ta.clone()))));
+        assert_eq!(command("delete"), Ok(("", Command::Delete(ts.clone()))));
+        assert_eq!(command("d*"), Ok(("", Command::Delete(ta.clone()))));
+        assert_eq!(command("filter-"), Ok(("", Command::Filter(Filter::Failed))));
+        assert_eq!(command("f-"), Ok(("", Command::Filter(Filter::Failed))));
+        assert_eq!(command("f+"), Ok(("", Command::Filter(Filter::Passed))));
+        assert_eq!(command("f~"), Ok(("", Command::Filter(Filter::Wainting))));
+        assert_eq!(
+            command("f#tag"),
+            Ok(("", Command::Filter(Filter::Tag(String::from("tag")))))
+        );
+        assert_eq!(
+            command("f name"),
+            Ok(("", Command::Filter(Filter::Name(String::from("name")))))
+        );
 
         // Should return an error
         assert_eq!(command("qt"), Err(Error::custom(ErrorKind::UnknownCommand)));
@@ -326,9 +395,7 @@ mod tests {
         );
         assert_eq!(
             command("run * *"),
-            Err(Error::custom(ErrorKind::TooManyArguments(Command::Run(
-                Target::All
-            ))))
+            Err(Error::custom(ErrorKind::TooManyArguments(Command::Run(Target::All))))
         );
     }
 }
