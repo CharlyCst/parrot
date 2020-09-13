@@ -1,6 +1,6 @@
 [package]
 name = "parrot-snap"
-version = "0.0.1"
+version = "0.0.2"
 description = "A colorful and chatty CLI snapshot testing tool"
 keywords = ["cli", "terminal", "testing", "snapshot"]
 categories = ["command-line-utilities", "development-tools"]
