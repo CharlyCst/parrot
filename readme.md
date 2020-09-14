@@ -6,12 +6,12 @@ A command-line snapshot testing tool for your scripts and CLI programs.
   <img src="./assets/demo.gif" alt="Parrot demo"/>
 </div>
 
-**parrot** allows you to take snapshots of your program outputs (status code, stdout and stderr) and test future runs outputs against them.
+**parrot** allows you to take and organize snapshots of your program outputs (status code, stdout and stderr) and later check that those ouputs are still the same.
 
 #### Features
-- Effortless end-to-end testing of scripts and programs outputs.
+- Effortless end-to-end testing of scripts and CLI programs.
+- Organize snapshots with tags.
 - Interactive REPL to navigate and interact with your snapshots.
-- [Soon] Can easily be integrated in your CI.
 
 ## Disclaimer
 
@@ -20,6 +20,7 @@ This project is still under development, it may have rough corners and the inter
 ## Table of contents
 
 - [Installation](#installation)
+- [Principle](#principle)
 - [Usage](#usage)
   - [Quit](#quit-q)
   - [Help](#help-h)
@@ -70,6 +71,11 @@ parrot
 ```
 
 From there you can navigate snapshots and execute commands.
+
+### Principle
+
+A central feature of **parrot** is the ability to add tags to snapshots: each time you add snapshot you are asked for a name and a description, if you put hashtags in the descriptions (like `#this`) those can be use later to browse and run your snapshots.
+When working in the REPL, **parrot** maintains a **view** of your snapshots, you can modify that view with the `filter` and `clear` commands (see next section) to search by names, tags or even failing snapshots. By using tag wisely you can easily run only the part of your test set that correspond to what you are working on, or infer the issue by browsing tags of failing tests.
 
 ### Parrot commands
 
