@@ -16,18 +16,28 @@ impl Error {
     }
 }
 
-/// Unwrap the result. In case of error log and exit.
-pub fn unwrap_log<T>(err: Result<T, Error>) -> T {
-    match err {
-        Ok(value) => value,
-        Err(err) => {
-            println!("{}", err.message);
-            if DEBUG {
-                if let Some(cause) = err.cause {
-                    println!("log: {}", cause)
+pub trait Log {
+    type T;
+
+    fn unwrap_log(self) -> Self::T;
+}
+
+impl<T> Log for Result<T, Error> {
+    type T = T;
+
+    /// Unwrap the result. In case of error log and exit.
+    fn unwrap_log(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(err) => {
+                println!("{}", err.message);
+                if DEBUG {
+                    if let Some(cause) = err.cause {
+                        println!("log: {}", cause)
+                    }
                 }
+                std::process::exit(1)
             }
-            std::process::exit(1)
         }
     }
 }

@@ -1,6 +1,6 @@
 use cli::Command;
 use std::process::exit;
-use error::unwrap_log;
+use error::Log;
 
 mod cli;
 mod data;
@@ -13,7 +13,7 @@ mod parser;
 
 fn main() {
     let config = cli::parse();
-    let mut context = unwrap_log(driver::Context::new(config.path));
+    let mut context = driver::Context::new(config.path).unwrap_log();
     match config.cmd {
         Some(Command::Init {}) => {
             context.init();

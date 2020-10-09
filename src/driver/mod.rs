@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::data::{DataManager, Snapshot, SnapshotStatus};
 use crate::editor;
-use crate::error::{unwrap_log, Error};
+use crate::error::{Error, Log};
 use crate::term;
 use crate::term::{BoxedWriter, Input, SeparatorKind};
 use crate::parser;
@@ -31,18 +31,18 @@ impl Context {
 
     /// Handles init subcommand.
     pub fn init(&mut self) {
-        unwrap_log(self.data.initialize());
+        self.data.initialize().unwrap_log();
         println!("Parrot has been initialized.")
     }
 
     /// Handles add subcommand.
     pub fn add(&mut self, cmd: &str, name: &Option<String>, yes: bool) {
-        let snap = unwrap_log(cmd::execute(&cmd, &self.path));
+        let snap = cmd::execute(&cmd, &self.path).unwrap_log();
         let save = if yes {
             true
         } else {
             term::snap_preview(&snap, &mut stdout());
-            unwrap_log(term::binary_qestion("Save this snapshot?"))
+            term::binary_qestion("Save this snapshot?").unwrap_log()
         };
         if save {
             // Get snapshot name
@@ -54,7 +54,7 @@ impl Context {
                 if yes {
                     get_random_name()
                 } else {
-                    let edit_result = unwrap_log(editor::open_empty(&self.path, cmd));
+                    let edit_result = editor::open_empty(&self.path, cmd).unwrap_log();
                     description = edit_result.description;
                     tags = edit_result.tags;
                     if let Some(name) = edit_result.name {
@@ -65,7 +65,7 @@ impl Context {
                 }
             };
             let snapshot = to_snapshot(name, description, tags, cmd.to_owned(), snap);
-            unwrap_log(self.data.add_snapshot(snapshot));
+            self.data.add_snapshot(snapshot).unwrap_log();
         }
     }
 
@@ -73,7 +73,7 @@ impl Context {
     /// Returns true in case of success, false otherwise.
     pub fn run(&mut self) -> bool {
         let mut stdout = stdout();
-        let snapshots = unwrap_log(self.data.get_all_snapshots());
+        let snapshots = self.data.get_all_snapshots().unwrap_log();
         let view = repl::View::new(snapshots);
         if self.run_view(&view, &mut stdout) {
             term::success(&mut stdout);
@@ -86,7 +86,7 @@ impl Context {
 
     /// Starts the REPL.
     pub fn repl(&mut self) {
-        let snapshots = unwrap_log(self.data.get_all_snapshots());
+        let snapshots = self.data.get_all_snapshots().unwrap_log();
         let mut view = repl::View::new(snapshots);
         let stdout = stdout();
         let stdin = stdin();
@@ -137,7 +137,7 @@ impl Context {
         if let Some(mut snap) = view.get_selected_mut() {
             if self.edit_snapshot(&mut snap, &mut repl.stdout) {
                 drop(snap); // Release the mutable borrow to allow data.persist
-                unwrap_log(self.data.persist_metadata());
+                self.data.persist_metadata().unwrap_log();
             }
         } else {
             repl.writeln("No snapshot to edit.")
@@ -215,7 +215,7 @@ impl Context {
                 }
             }
         }
-        unwrap_log(self.data.gc_snapshots());
+        self.data.gc_snapshots().unwrap_log();
         view.apply_filter(Filter::Deleted);
         repl.restore();
     }
@@ -233,7 +233,7 @@ impl Context {
     /// Runs a single snapshot.
     fn run_snapshot<B: Write>(&self, snap: &mut Snapshot, buffer: &mut B) -> bool {
         let empty_body = Vec::new();
-        let result = unwrap_log(cmd::execute(&snap.cmd, &self.path));
+        let result = cmd::execute(&snap.cmd, &self.path).unwrap_log();
         let old_stdout = if let Some(ref stdout) = snap.stdout {
             &stdout.body
         } else {
@@ -327,7 +327,7 @@ impl Context {
         for snap in view.get_view() {
             let mut snap = snap.borrow_mut();
             if self.update_snapshot(&mut snap) {
-                unwrap_log(self.data.persist_snapshot_data(&snap));
+                self.data.persist_snapshot_data(&snap).unwrap_log();
                 count += 1;
             }
         }
@@ -337,7 +337,7 @@ impl Context {
             } else {
                 repl.writeln(&format!("Updated {} snapshots.", count));
             }
-            unwrap_log(self.data.persist_metadata());
+            self.data.persist_metadata().unwrap_log();
         } else {
             repl.writeln("Nothing to do.");
         }
@@ -348,9 +348,9 @@ impl Context {
         match view.get_selected_mut() {
             Some(mut snap) => {
                 if self.update_snapshot(&mut snap) {
-                    unwrap_log(self.data.persist_snapshot_data(&snap));
+                    self.data.persist_snapshot_data(&snap).unwrap_log();
                     drop(snap); // Release mut ref before persisting
-                    unwrap_log(self.data.persist_metadata());
+                    self.data.persist_metadata().unwrap_log();
                     repl.writeln("Updated 1 snapshot.")
                 } else {
                     repl.writeln("Nothing to do.")
@@ -365,7 +365,7 @@ impl Context {
     /// The command will be run to get the new output, there is no caching for
     /// now.
     fn update_snapshot(&self, snap: &mut Snapshot) -> bool {
-        let result = unwrap_log(cmd::execute(&snap.cmd, &self.path));
+        let result = cmd::execute(&snap.cmd, &self.path).unwrap_log();
         let mut has_changed = false;
         let new_stdout = util::to_snapshot_data(result.stdout, &snap.name, ".out");
         let new_stderr = util::to_snapshot_data(result.stderr, &snap.name, ".err");
