@@ -179,10 +179,41 @@ Delete the selected snapshot, or all snapshots in the current view if `*` is pas
 
 ## Customization
 
+### Editor
+
 To decide which editor to use, **parrot** looks at the `EDITOR` environment variable, you can change your default editor by setting this variable:
 
 ```sh
 export EDITOR=nvim
+```
+
+### Theme
+
+<div align="center">
+  <img src="./assets/scarlet-preview.png" alt="Scarlet theme preview"/>
+</div>
+
+The default theme (shown above) is `scarlet`, inspired by the eponymous macaw, but there is a handful of other themes you can choose from:
+
+| theme           | preview                                   |
+|-----------------|-------------------------------------------|
+| scarlet         | <img src="./assets/scarlet.png"/>         |
+| blue-and-yellow | <img src="./assets/blue-and-yellow.png"/> |
+| yellow-crested  | <img src="./assets/yellow-crested.png"/>  |
+| military        | <img src="./assets/military.png"/>        |
+| hyacinth        | <img src="./assets/hyacinth.png"/>        |
+| gray            | <img src="./assets/gray.png"/>            |
+
+To set a theme update the `PARROT_THEME` variable:
+
+```sh
+export PARROT_THEME=hyacinth
+```
+
+If your terminal does not support true colors, there is an `ansi` theme you can still use:
+
+```sh
+export PARROT_THEME=ansi
 ```
 
 ## Current limitations
