@@ -20,13 +20,14 @@ pub use repl::View;
 pub struct Context {
     path: PathBuf,
     data: DataManager,
+    theme: term::Theme,
 }
 
 impl Context {
     /// Creates a new context.
     pub fn new(path: PathBuf) -> Result<Context, Error> {
         let data = DataManager::new(&path)?;
-        Ok(Context { path, data })
+        Ok(Context { path, data, theme: term::Theme::new() })
     }
 
     /// Handles init subcommand.
@@ -41,7 +42,7 @@ impl Context {
         let save = if yes {
             true
         } else {
-            term::snap_preview(&snap, &mut stdout());
+            term::snap_preview(&snap, &mut stdout(), &self.theme);
             term::binary_qestion("Save this snapshot?").unwrap_log()
         };
         if save {
@@ -232,6 +233,7 @@ impl Context {
 
     /// Runs a single snapshot.
     fn run_snapshot<B: Write>(&self, snap: &mut Snapshot, buffer: &mut B) -> bool {
+        let theme = &self.theme;
         let empty_body = Vec::new();
         let result = cmd::execute(&snap.cmd, &self.path).unwrap_log();
         let old_stdout = if let Some(ref stdout) = snap.stdout {
@@ -250,19 +252,19 @@ impl Context {
         let failed = !stdout_eq || !stderr_eq || !code_eq;
         // Draw test summary
         if failed {
-            term::box_separator(&snap.name, SeparatorKind::Top, buffer);
-            term::snap_summary(snap.description.as_ref(), &snap.cmd, snap.exit_code, buffer);
+            term::box_separator(&snap.name, SeparatorKind::Top, buffer, theme);
+            term::snap_summary(snap.description.as_ref(), &snap.cmd, snap.exit_code, buffer, theme);
         }
         if &result.stdout != old_stdout {
-            term::box_separator("stdout", SeparatorKind::Middle, buffer);
-            term::write_diff(old_stdout, &result.stdout, buffer);
+            term::box_separator("stdout", SeparatorKind::Middle, buffer, theme);
+            term::write_diff(old_stdout, &result.stdout, buffer, theme);
         }
         if &result.stderr != old_stderr {
-            term::box_separator("stderr", SeparatorKind::Middle, buffer);
-            term::write_diff(old_stderr, &result.stderr, buffer);
+            term::box_separator("stderr", SeparatorKind::Middle, buffer, theme);
+            term::write_diff(old_stderr, &result.stderr, buffer, theme);
         }
         if failed {
-            term::box_separator("", SeparatorKind::Bottom, buffer);
+            term::box_separator("", SeparatorKind::Bottom, buffer, theme);
             snap.status = SnapshotStatus::Failed;
         } else {
             snap.status = SnapshotStatus::Passed;
@@ -272,17 +274,18 @@ impl Context {
 
     /// Shows a single test.
     fn show_snapshot<B: Write>(&self, snap: &Snapshot, buffer: &mut B) {
-        term::box_separator(&snap.name, SeparatorKind::Top, buffer);
-        term::snap_summary(snap.description.as_ref(), &snap.cmd, snap.exit_code, buffer);
+        let theme = &self.theme;
+        term::box_separator(&snap.name, SeparatorKind::Top, buffer, theme);
+        term::snap_summary(snap.description.as_ref(), &snap.cmd, snap.exit_code, buffer, theme);
         if let Some(stdout) = &snap.stdout {
-            term::box_separator("stdout", SeparatorKind::Middle, buffer);
-            buffer.boxed_write(&stdout.body).unwrap();
+            term::box_separator("stdout", SeparatorKind::Middle, buffer, theme);
+            buffer.boxed_write(&stdout.body, theme).unwrap();
         }
         if let Some(stderr) = &snap.stderr {
-            term::box_separator("stderr", SeparatorKind::Middle, buffer);
-            buffer.boxed_write(&stderr.body).unwrap();
+            term::box_separator("stderr", SeparatorKind::Middle, buffer, theme);
+            buffer.boxed_write(&stderr.body, theme).unwrap();
         }
-        term::box_separator("", SeparatorKind::Bottom, buffer);
+        term::box_separator("", SeparatorKind::Bottom, buffer, theme);
     }
 
     /// Edits the selected snapshot.

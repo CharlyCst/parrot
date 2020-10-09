@@ -5,6 +5,7 @@ use termion::input::{Keys, TermRead};
 use termion::raw::{IntoRawMode, RawTerminal};
 use termion::{clear, color, cursor, style, terminal_size};
 
+use super::theme::Theme;
 use crate::data::SnapshotStatus;
 use crate::driver::View;
 
@@ -22,6 +23,7 @@ pub struct Repl {
     input: String,
     cursor_pos: (u16, u16),
     height: u16,
+    theme: Theme,
 
     // Symbols
     waiting_symbol: String,
@@ -45,17 +47,12 @@ impl Repl {
             height: 8 + 5,
 
             // Symbols
-            waiting_symbol: format!(
-                "{}~{}",
-                color::Fg(color::LightBlue),
-                color::Fg(color::Reset)
-            ),
+            waiting_symbol: format!("{}~{}", color::Fg(color::LightBlue), color::Fg(color::Reset)),
             failed_symbol: format!("{}✗{}", color::Fg(color::LightRed), color::Fg(color::Reset)),
-            passed_symbol: format!(
-                "{}✓{}",
-                color::Fg(color::LightGreen),
-                color::Fg(color::Reset)
-            ),
+            passed_symbol: format!("{}✓{}", color::Fg(color::LightGreen), color::Fg(color::Reset)),
+
+            // Colors
+            theme: Theme::new(),
         };
         repl.restore();
         repl
@@ -159,8 +156,8 @@ impl Repl {
         // Style & colors
         let bg = color::Bg(color::Black);
         let clear_bg = color::Bg(color::Reset);
-        let red = color::Fg(color::LightRed);
-        let clear_red = color::Fg(color::Reset);
+        let cursor_color = &self.theme.cursor;
+        let clear_color = color::Fg(color::Reset);
         let bold = style::Bold;
         let clear_bold = style::Reset;
 
@@ -177,23 +174,14 @@ impl Repl {
                 write!(
                     self.stdout,
                     "{}{}{}>{} {} {}{}{}\r\n",
-                    bg, bold, red, clear_red, status, snap.name, clear_bold, clear_bg
+                    bg, bold, cursor_color, clear_color, status, snap.name, clear_bold, clear_bg
                 )
                 .unwrap();
             } else {
-                write!(
-                    self.stdout,
-                    "{} {} {} {}\r\n",
-                    bg, clear_bg, status, snap.name
-                )
-                .unwrap();
+                write!(self.stdout, "{} {} {} {}\r\n", bg, clear_bg, status, snap.name).unwrap();
             };
         }
-        let current = if data.len() == 0 {
-            0
-        } else {
-            min + view.cursor + 1
-        };
+        let current = if data.len() == 0 { 0 } else { min + view.cursor + 1 };
         write!(
             self.stdout,
             "  {}{}/{}{}",
@@ -207,14 +195,14 @@ impl Repl {
 
     /// Displays the input, return the offset of the input line.
     fn display_input(&mut self) -> u16 {
-        let blue = color::Fg(color::LightBlue);
-        let clear_blue = color::Fg(color::Reset);
+        let input_color = &self.theme.input;
+        let clear_color = color::Fg(color::Reset);
         let bold = style::Bold;
         let clear_bold = style::Reset;
         write!(
             self.stdout,
             "{}{}>{} {}{}",
-            bold, blue, clear_blue, self.input, clear_bold
+            bold, input_color, clear_color, self.input, clear_bold
         )
         .unwrap();
         write!(self.stdout, "\r\n").unwrap();
@@ -227,10 +215,10 @@ impl Repl {
         // Style & colors
         let bold = style::Bold;
         let reset_style = style::Reset;
-        let red = color::Fg(color::LightRed);
-        let yellow = color::Fg(color::LightYellow);
-        let green = color::Fg(color::LightGreen);
-        let blue = color::Fg(color::LightBlue);
+        let red = &self.theme.red;
+        let yellow = &self.theme.yellow;
+        let green = &self.theme.green;
+        let blue = &self.theme.blue;
         let reset_color = color::Fg(color::Reset);
 
         // Compute sizes
@@ -239,8 +227,7 @@ impl Repl {
         let yellow_width = w / 6;
         let green_width = w / 9;
         let blue_width = w / 18;
-        let red_width =
-            red_width + (w - red_width - 2 * yellow_width - 2 * green_width - 2 * blue_width);
+        let red_width = red_width + (w - red_width - 2 * yellow_width - 2 * green_width - 2 * blue_width);
         let cmd_width = w - 7;
         let desc_width = w - 2;
         let name_width = 2 * green_width + 2 * yellow_width + red_width;

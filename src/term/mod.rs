@@ -7,10 +7,12 @@ use crate::error::{wrap, Error};
 mod diff;
 pub mod help;
 mod repl;
+mod theme;
 
 pub use diff::write_diff;
 pub use repl::Input;
 pub use repl::Repl;
+pub use theme::Theme;
 
 pub enum SeparatorKind {
     Top,
@@ -43,27 +45,27 @@ pub fn binary_qestion(question: &str) -> Result<bool, Error> {
     }
 }
 
-pub fn snap_preview<B: Write>(snap: &std::process::Output, buffer: &mut B) {
-    box_separator("status code", SeparatorKind::Top, buffer);
+pub fn snap_preview<B: Write>(snap: &std::process::Output, buffer: &mut B, theme: &Theme) {
+    box_separator("status code", SeparatorKind::Top, buffer, theme);
     let exit_code = snap.status.code();
     if let Some(code) = exit_code {
         buffer
-            .boxed_write_str(&format!("{}{}{}", style::Bold, code, style::Reset))
+            .boxed_write_str(&format!("{}{}{}", style::Bold, code, style::Reset), theme)
             .unwrap();
     } else {
         buffer
-            .boxed_write_str(&format!("{}None{}", style::Bold, style::Reset))
+            .boxed_write_str(&format!("{}None{}", style::Bold, style::Reset), theme)
             .unwrap();
     }
     if snap.stdout.len() > 0 {
-        box_separator("stdout", SeparatorKind::Middle, buffer);
-        buffer.boxed_write(&snap.stdout).unwrap();
+        box_separator("stdout", SeparatorKind::Middle, buffer, theme);
+        buffer.boxed_write(&snap.stdout, theme).unwrap();
     }
     if snap.stderr.len() > 0 {
-        box_separator("stderr", SeparatorKind::Middle, buffer);
-        buffer.boxed_write(&snap.stderr).unwrap();
+        box_separator("stderr", SeparatorKind::Middle, buffer, theme);
+        buffer.boxed_write(&snap.stderr, theme).unwrap();
     }
-    box_separator("", SeparatorKind::Bottom, buffer);
+    box_separator("", SeparatorKind::Bottom, buffer, theme);
 }
 
 /// Writes a summary of a given snapshot.
@@ -72,6 +74,7 @@ pub fn snap_summary<B: Write>(
     cmd: &str,
     status_code: Option<i32>,
     buffer: &mut B,
+    theme: &Theme,
 ) {
     let bold = style::Bold;
     let reset = style::Reset;
@@ -81,17 +84,18 @@ pub fn snap_summary<B: Write>(
         String::from("None")
     };
     buffer
-        .boxed_write_str(&format!(
-            "\
+        .boxed_write_str(
+            &format!(
+                "\
             cmd:  {}{}{}\n\
             code: {}{}{}",
-            bold, cmd, reset, bold, code, reset
-        ))
+                bold, cmd, reset, bold, code, reset
+            ),
+            theme,
+        )
         .unwrap();
     if let Some(description) = description {
-        buffer
-            .boxed_write_str(&format!("\n{}\n", description))
-            .unwrap();
+        buffer.boxed_write_str(&format!("\n{}\n", description), theme).unwrap();
     }
 }
 
@@ -121,7 +125,8 @@ pub fn failure<B: Write>(buffer: &mut B) {
     .unwrap();
 }
 
-pub fn box_separator<B: Write>(title: &str, kind: SeparatorKind, buffer: &mut B) {
+/// Draws a separator for boxed messages.
+pub fn box_separator<B: Write>(title: &str, kind: SeparatorKind, buffer: &mut B, theme: &Theme) {
     let corner = match kind {
         SeparatorKind::Top => '┌',
         SeparatorKind::Middle => '├',
@@ -131,7 +136,7 @@ pub fn box_separator<B: Write>(title: &str, kind: SeparatorKind, buffer: &mut B)
     write!(
         buffer,
         "{}{}────{} {}{}{}\r\n",
-        color::Fg(color::LightBlue),
+        theme.blue,
         corner,
         color::Fg(color::Reset),
         style::Bold,
@@ -144,13 +149,13 @@ pub fn box_separator<B: Write>(title: &str, kind: SeparatorKind, buffer: &mut B)
 /// Allows to write boxed messages.
 /// Will sanitize line breaks to handle raw terminal mode.
 pub trait BoxedWriter: Write {
-    fn boxed_write(&mut self, buf: &[u8]) -> io::Result<()>;
-    fn boxed_write_str(&mut self, string: &str) -> io::Result<()>;
+    fn boxed_write(&mut self, buf: &[u8], theme: &Theme) -> io::Result<()>;
+    fn boxed_write_str(&mut self, string: &str, theme: &Theme) -> io::Result<()>;
 }
 
 impl<W: Write> BoxedWriter for W {
-    fn boxed_write(&mut self, buf: &[u8]) -> io::Result<()> {
-        let colorize = color::Fg(color::LightBlue);
+    fn boxed_write(&mut self, buf: &[u8], theme: &Theme) -> io::Result<()> {
+        let colorize = &theme.blue;
         let reset_color = color::Fg(color::Reset);
         for line in buf.split(|c| c == &b'\n') {
             write!(self, "{}│{} ", colorize, reset_color)?;
@@ -160,8 +165,8 @@ impl<W: Write> BoxedWriter for W {
         Ok(())
     }
 
-    fn boxed_write_str(&mut self, string: &str) -> io::Result<()> {
-        let colorize = color::Fg(color::LightBlue);
+    fn boxed_write_str(&mut self, string: &str, theme: &Theme) -> io::Result<()> {
+        let colorize = &theme.blue;
         let reset_color = color::Fg(color::Reset);
         for line in string.lines() {
             write!(self, "{}│{} {}\r\n", colorize, reset_color, line)?;
