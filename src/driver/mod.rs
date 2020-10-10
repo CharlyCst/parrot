@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use crate::data::{DataManager, Snapshot, SnapshotStatus};
 use crate::editor;
 use crate::error::{Error, Log};
+use crate::parser;
 use crate::term;
 use crate::term::{BoxedWriter, Input, SeparatorKind};
-use crate::parser;
 
-use parser::{Filter, Command, Target, parse};
+use parser::{parse, Command, Filter, Target};
 use util::*;
 
 mod cmd;
@@ -27,7 +27,11 @@ impl Context {
     /// Creates a new context.
     pub fn new(path: PathBuf) -> Result<Context, Error> {
         let data = DataManager::new(&path)?;
-        Ok(Context { path, data, theme: term::Theme::new() })
+        Ok(Context {
+            path,
+            data,
+            theme: term::Theme::new(),
+        })
     }
 
     /// Handles init subcommand.
@@ -92,15 +96,24 @@ impl Context {
         let stdout = stdout();
         let stdin = stdin();
         let mut repl = term::Repl::new(stdin, stdout);
-        loop {
+        'exit: loop {
             match repl.run(&view) {
                 Input::Up => view.up(),
                 Input::Down => view.down(),
                 Input::Quit => break,
                 Input::Command(cmd) => {
-                    match parse(&cmd) {
-                        Ok(cmd) => match cmd {
-                            Command::Quit => break,
+                    let commands = match parse(&cmd) {
+                        Ok(commands) => commands,
+                        Err(error) => {
+                            repl.suspend();
+                            repl.writeln(&error);
+                            repl.restore();
+                            Vec::new()
+                        }
+                    };
+                    for command in commands {
+                        match command {
+                            Command::Quit => break 'exit,
                             Command::Help => self.execute_help(&mut repl),
                             Command::Edit => self.execute_edit(&mut repl, &view),
                             Command::Clear => view.clear_filters(),
@@ -108,14 +121,7 @@ impl Context {
                             Command::Run(target) => self.execute_run(&mut repl, &view, target),
                             Command::Show(target) => self.execute_show(&mut repl, &view, target),
                             Command::Update(target) => self.execute_update(&mut repl, &view, target),
-                            Command::Delete(target) => {
-                                self.execute_delete(&mut repl, &mut view, target)
-                            }
-                        },
-                        Err(error) => {
-                            repl.suspend();
-                            repl.writeln(&error);
-                            repl.restore();
+                            Command::Delete(target) => self.execute_delete(&mut repl, &mut view, target),
                         }
                     }
                 }
