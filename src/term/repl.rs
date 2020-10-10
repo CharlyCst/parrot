@@ -125,6 +125,7 @@ impl Repl {
                     self.checkpoint();
                     self.render(view);
                 }
+                Key::Ctrl('c') => return Input::Command(String::from("q")),
                 _ => (),
             }
         }
