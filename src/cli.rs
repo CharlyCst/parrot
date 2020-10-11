@@ -4,7 +4,7 @@ use clap::Clap;
 use std::path::PathBuf;
 
 #[derive(Clap)]
-#[clap(version = "0.0.2")]
+#[clap(version = "0.0.3")]
 #[clap(verbatim_doc_comment)]
 /// A colorful and chatty CLI snapshot tool.
 /// |
