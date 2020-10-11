@@ -17,6 +17,12 @@ mod util;
 
 pub use repl::View;
 
+/// The result of a command execution, which may ask for termination or not.
+pub enum ReplStatus {
+    Exit,
+    Continue,
+}
+
 pub struct Context {
     path: PathBuf,
     data: DataManager,
@@ -89,46 +95,65 @@ impl Context {
         }
     }
 
+    /// Hnadles the exec subcommand.
+    pub fn exec(&mut self, commands: &str) {
+        let (mut view, mut repl) = self.get_view_and_repl();
+        self.execute_commands(commands, &mut view, &mut repl);
+    }
+
     /// Starts the REPL.
     pub fn repl(&mut self) {
-        let snapshots = self.data.get_all_snapshots().unwrap_log();
-        let mut view = repl::View::new(snapshots);
-        let stdout = stdout();
-        let stdin = stdin();
-        let mut repl = term::Repl::new(stdin, stdout);
-        'exit: loop {
+        let (mut view, mut repl) = self.get_view_and_repl();
+        loop {
             match repl.run(&view) {
                 Input::Up => view.up(),
                 Input::Down => view.down(),
                 Input::Quit => break,
-                Input::Command(cmd) => {
-                    let commands = match parse(&cmd) {
-                        Ok(commands) => commands,
-                        Err(error) => {
-                            repl.suspend();
-                            repl.writeln(&error);
-                            repl.restore();
-                            Vec::new()
-                        }
-                    };
-                    for command in commands {
-                        match command {
-                            Command::Quit => break 'exit,
-                            Command::Help => self.execute_help(&mut repl),
-                            Command::Edit => self.execute_edit(&mut repl, &view),
-                            Command::Clear => view.clear_filters(),
-                            Command::Filter(args) => view.apply_filter(args),
-                            Command::Run(target) => self.execute_run(&mut repl, &view, target),
-                            Command::Show(target) => self.execute_show(&mut repl, &view, target),
-                            Command::Update(target) => self.execute_update(&mut repl, &view, target),
-                            Command::Delete(target) => self.execute_delete(&mut repl, &mut view, target),
-                        }
-                    }
-                }
+                Input::Command(cmd) => match self.execute_commands(&cmd, &mut view, &mut repl) {
+                    ReplStatus::Exit => break,
+                    ReplStatus::Continue => (),
+                },
             }
         }
         // Clear the REPL befor exiting
         repl.suspend();
+    }
+
+    /// Returns a new View and Repl.
+    fn get_view_and_repl(&mut self) -> (View, term::Repl) {
+        let snapshots = self.data.get_all_snapshots().unwrap_log();
+        let view = repl::View::new(snapshots);
+        let stdout = stdout();
+        let stdin = stdin();
+        let repl = term::Repl::new(stdin, stdout);
+        (view, repl)
+    }
+
+    /// Parses and executes commands.
+    fn execute_commands(&mut self, commands: &str, view: &mut View, repl: &mut term::Repl) -> ReplStatus {
+        let commands = match parse(commands) {
+            Ok(commands) => commands,
+            Err(error) => {
+                repl.suspend();
+                repl.writeln(&error);
+                repl.restore();
+                Vec::new()
+            }
+        };
+        for command in commands {
+            match command {
+                Command::Quit => return ReplStatus::Exit,
+                Command::Help => self.execute_help(repl),
+                Command::Edit => self.execute_edit(repl, view),
+                Command::Clear => view.clear_filters(),
+                Command::Filter(args) => view.apply_filter(args),
+                Command::Run(target) => self.execute_run(repl, view, target),
+                Command::Show(target) => self.execute_show(repl, view, target),
+                Command::Update(target) => self.execute_update(repl, view, target),
+                Command::Delete(target) => self.execute_delete(repl, view, target),
+            }
+        }
+        ReplStatus::Continue
     }
 
     /// Executes the help command.

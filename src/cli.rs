@@ -8,9 +8,9 @@ use std::path::PathBuf;
 #[clap(verbatim_doc_comment)]
 /// A colorful and chatty CLI snapshot tool.
 /// |
-/// |      (o>   
+/// |      (o>
 /// |______(()___
-/// |      ||    
+/// |      ||
 /// |
 pub struct Config {
     #[clap(subcommand)]
@@ -27,7 +27,7 @@ pub struct Config {
 
 #[derive(Clap)]
 pub enum Command {
-     /// Add a new snapshot for the given command
+    /// Add a new snapshot for the given command
     Add {
         /// The command to execute
         cmd: String,
@@ -41,6 +41,9 @@ pub enum Command {
         yes: bool,
     },
 
+    /// Execute a script
+    Exec { cmd: String },
+
     /// Initialize Parrot
     Init {},
 
@@ -52,4 +55,3 @@ pub enum Command {
 pub fn parse() -> Config {
     Config::parse()
 }
-
