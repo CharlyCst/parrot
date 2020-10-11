@@ -122,7 +122,7 @@ fn no_args_left(i: &str, cmd: Command) -> CResult<&str, Command> {
 /// If no argument is found, the target is assumed to be 'Selected'.
 fn target(i: &str, cmd: CommandKeyword) -> CResult<&str, Target> {
     let (i, _) = whitespaces(i)?;
-    let selected = value(Target::Selected, end_of_script);
+    let selected = value(Target::Selected, end_of_command);
     let all = value(Target::All, tag("*"));
     let target = alt((all, selected));
     let target = preceded(whitespaces, target);
@@ -426,6 +426,8 @@ mod tests {
         assert_eq!(commands("s*"), Ok(("", vec![Command::Show(Target::All)])));
         assert_eq!(commands("update"), Ok(("", vec![Command::Update(ts.clone())])));
         assert_eq!(commands("u*"), Ok(("", vec![Command::Update(ta.clone())])));
+        assert_eq!(commands("u*;"), Ok(("", vec![Command::Update(ta.clone())])));
+        assert_eq!(commands("u;"), Ok(("", vec![Command::Update(ts.clone())])));
         assert_eq!(commands("delete"), Ok(("", vec![Command::Delete(ts.clone())])));
         assert_eq!(commands("d*"), Ok(("", vec![Command::Delete(ta.clone())])));
         assert_eq!(commands("filter-"), Ok(("", vec![Command::Filter(Filter::Failed)])));
