@@ -29,7 +29,8 @@ fn main() {
             } else {
                 exit(1);
             }
-        }
+        },
+        Some(Command::Exec { ref cmd }) => context.exec(cmd),
         None => {
             context.repl();
         }

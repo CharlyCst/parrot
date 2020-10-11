@@ -73,7 +73,7 @@ fn whitespaces(i: &str) -> CResult<&str, &str> {
 /// Looks for a separator, does not consume it.
 /// EOF counts as a separator.
 fn peek_separator(i: &str) -> CResult<&str, ()> {
-    let chars = " \t\r\n#+-*~";
+    let chars = " \t\r\n#+-*~;";
     if i.len() == 0 {
         Ok((i, ()))
     } else {
@@ -81,14 +81,21 @@ fn peek_separator(i: &str) -> CResult<&str, ()> {
     }
 }
 
-/// Parses a command terminator.
-/// For now the only command terminator is EOF.
-fn command_terminator(i: &str) -> CResult<&str, &str> {
+/// Parses a the end of the script.
+fn end_of_script(i: &str) -> CResult<&str, &str> {
+    let (i, _) = whitespaces(i)?;
     if i.len() == 0 {
         Ok((i, ""))
     } else {
         Err(Error::recoverable(ErrorKind::Nom(i, nom::error::ErrorKind::NoneOf)))
     }
+}
+
+/// Parse the end of a command.
+fn end_of_command(i: &str) -> CResult<&str, &str> {
+    let (i, _) = whitespaces(i)?;
+    let comma = tag(";");
+    alt((comma, end_of_script))(i)
 }
 
 /// Parses a name.
@@ -105,8 +112,7 @@ fn hashtag(i: &str) -> CResult<&str, &str> {
 /// Ensures that no arguments remain.
 /// Return `cmd` if no arguments are found, a TooManyArgument error otherwise.
 fn no_args_left(i: &str, cmd: Command) -> CResult<&str, Command> {
-    let (i, _) = whitespaces(i)?;
-    match command_terminator(i) {
+    match end_of_command(i) {
         Ok((i, _)) => Ok((i, cmd)),
         Err(_) => Err(Error::custom(ErrorKind::TooManyArguments(cmd))),
     }
@@ -116,7 +122,7 @@ fn no_args_left(i: &str, cmd: Command) -> CResult<&str, Command> {
 /// If no argument is found, the target is assumed to be 'Selected'.
 fn target(i: &str, cmd: CommandKeyword) -> CResult<&str, Target> {
     let (i, _) = whitespaces(i)?;
-    let selected = value(Target::Selected, command_terminator);
+    let selected = value(Target::Selected, end_of_command);
     let all = value(Target::All, tag("*"));
     let target = alt((all, selected));
     let target = preceded(whitespaces, target);
@@ -158,8 +164,8 @@ fn command_keyword<'a>(
     move |i: &str| parser(i)
 }
 
-/// Parses a command.
-fn command(i: &str) -> CResult<&str, Command> {
+/// Parses succession of a commands.
+fn commands(i: &str) -> CResult<&str, Vec<Command>> {
     let quit = command_keyword("quit", "q", CommandKeyword::Quit);
     let clear = command_keyword("clear", "c", CommandKeyword::Clear);
     let help = command_keyword("help", "h", CommandKeyword::Help);
@@ -170,39 +176,51 @@ fn command(i: &str) -> CResult<&str, Command> {
     let delete = command_keyword("delete", "d", CommandKeyword::Delete);
     let filter = command_keyword("filter", "f", CommandKeyword::Filter);
     let keyword = alt((quit, clear, help, edit, run, show, update, delete, filter));
-    match keyword(i) {
-        Ok((i, keyword)) => match keyword {
-            CommandKeyword::Quit => no_args_left(i, Command::Quit),
-            CommandKeyword::Clear => no_args_left(i, Command::Clear),
-            CommandKeyword::Help => no_args_left(i, Command::Help),
-            CommandKeyword::Edit => no_args_left(i, Command::Edit),
-            CommandKeyword::Run => {
-                let (i, t) = target(i, CommandKeyword::Run)?;
-                no_args_left(i, Command::Run(t))
-            }
-            CommandKeyword::Show => {
-                let (i, t) = target(i, CommandKeyword::Show)?;
-                no_args_left(i, Command::Show(t))
-            }
-            CommandKeyword::Update => {
-                let (i, t) = target(i, CommandKeyword::Update)?;
-                no_args_left(i, Command::Update(t))
-            }
-            CommandKeyword::Delete => {
-                let (i, t) = target(i, CommandKeyword::Delete)?;
-                no_args_left(i, Command::Delete(t))
-            }
-            CommandKeyword::Filter => {
-                let (i, f) = filter_arg(i)?;
-                no_args_left(i, Command::Filter(f))
-            }
-        },
-        Err(err) => Err(Error::custom_with_backtrace(ErrorKind::UnknownCommand, err)),
+    let mut commands = Vec::new();
+    let mut i = i;
+    loop {
+        // Parses a single command
+        let (input, cmd) = match keyword(i) {
+            Ok((i, keyword)) => match keyword {
+                CommandKeyword::Quit => no_args_left(i, Command::Quit),
+                CommandKeyword::Clear => no_args_left(i, Command::Clear),
+                CommandKeyword::Help => no_args_left(i, Command::Help),
+                CommandKeyword::Edit => no_args_left(i, Command::Edit),
+                CommandKeyword::Run => {
+                    let (i, t) = target(i, CommandKeyword::Run)?;
+                    no_args_left(i, Command::Run(t))
+                }
+                CommandKeyword::Show => {
+                    let (i, t) = target(i, CommandKeyword::Show)?;
+                    no_args_left(i, Command::Show(t))
+                }
+                CommandKeyword::Update => {
+                    let (i, t) = target(i, CommandKeyword::Update)?;
+                    no_args_left(i, Command::Update(t))
+                }
+                CommandKeyword::Delete => {
+                    let (i, t) = target(i, CommandKeyword::Delete)?;
+                    no_args_left(i, Command::Delete(t))
+                }
+                CommandKeyword::Filter => {
+                    let (i, f) = filter_arg(i)?;
+                    no_args_left(i, Command::Filter(f))
+                }
+            },
+            Err(err) => return Err(Error::custom_with_backtrace(ErrorKind::UnknownCommand, err)),
+        }?;
+        i = input;
+        commands.push(cmd);
+        // Terminate at eof
+        match end_of_script(i) {
+            Ok(_) => return Ok((i, commands)),
+            Err(_) => (),
+        }
     }
 }
 
-pub fn parse(input: &str) -> Result<Command, String> {
-    match command(input) {
+pub fn parse(input: &str) -> Result<Vec<Command>, String> {
+    match commands(input) {
         Ok((_, cmd)) => Ok(cmd),
         Err(err) => {
             let err = match err {
@@ -327,6 +345,8 @@ mod tests {
         assert_eq!(no_args_left("", cmd.clone()), Ok(("", cmd.clone())));
         assert_eq!(no_args_left("    ", cmd.clone()), Ok(("", cmd.clone())));
         assert_eq!(no_args_left(" \t \n", cmd.clone()), Ok(("", cmd.clone())));
+        assert_eq!(no_args_left("; +", cmd.clone()), Ok((" +", cmd.clone())));
+        assert_eq!(no_args_left("   ;*", cmd.clone()), Ok(("*", cmd.clone())));
 
         // Should return an error
         assert_eq!(no_args_left("+", cmd.clone()), error);
@@ -390,45 +410,53 @@ mod tests {
         let ta = Target::All;
 
         // Should succeed
-        assert_eq!(command("q"), Ok(("", Command::Quit)));
-        assert_eq!(command("quit"), Ok(("", Command::Quit)));
-        assert_eq!(command("c"), Ok(("", Command::Clear)));
-        assert_eq!(command("clear"), Ok(("", Command::Clear)));
-        assert_eq!(command("h"), Ok(("", Command::Help)));
-        assert_eq!(command("help"), Ok(("", Command::Help)));
-        assert_eq!(command("e"), Ok(("", Command::Edit)));
-        assert_eq!(command("edit"), Ok(("", Command::Edit)));
-        assert_eq!(command(" \t \n\rquit "), Ok(("", Command::Quit)));
-        assert_eq!(command("run"), Ok(("", Command::Run(Target::Selected))));
-        assert_eq!(command("run *"), Ok(("", Command::Run(Target::All))));
-        assert_eq!(command("r*"), Ok(("", Command::Run(Target::All))));
-        assert_eq!(command("show"), Ok(("", Command::Show(Target::Selected))));
-        assert_eq!(command("s*"), Ok(("", Command::Show(Target::All))));
-        assert_eq!(command("update"), Ok(("", Command::Update(ts.clone()))));
-        assert_eq!(command("u*"), Ok(("", Command::Update(ta.clone()))));
-        assert_eq!(command("delete"), Ok(("", Command::Delete(ts.clone()))));
-        assert_eq!(command("d*"), Ok(("", Command::Delete(ta.clone()))));
-        assert_eq!(command("filter-"), Ok(("", Command::Filter(Filter::Failed))));
-        assert_eq!(command("f-"), Ok(("", Command::Filter(Filter::Failed))));
-        assert_eq!(command("f+"), Ok(("", Command::Filter(Filter::Passed))));
-        assert_eq!(command("f~"), Ok(("", Command::Filter(Filter::Waiting))));
+        assert_eq!(commands("q"), Ok(("", vec![Command::Quit])));
+        assert_eq!(commands("quit"), Ok(("", vec![Command::Quit])));
+        assert_eq!(commands("c"), Ok(("", vec![Command::Clear])));
+        assert_eq!(commands("clear"), Ok(("", vec![Command::Clear])));
+        assert_eq!(commands("h"), Ok(("", vec![Command::Help])));
+        assert_eq!(commands("help"), Ok(("", vec![Command::Help])));
+        assert_eq!(commands("e"), Ok(("", vec![Command::Edit])));
+        assert_eq!(commands("edit"), Ok(("", vec![Command::Edit])));
+        assert_eq!(commands(" \t \n\rquit "), Ok(("", vec![Command::Quit])));
+        assert_eq!(commands("run"), Ok(("", vec![Command::Run(Target::Selected)])));
+        assert_eq!(commands("run *"), Ok(("", vec![Command::Run(Target::All)])));
+        assert_eq!(commands("r*"), Ok(("", vec![Command::Run(Target::All)])));
+        assert_eq!(commands("show"), Ok(("", vec![Command::Show(Target::Selected)])));
+        assert_eq!(commands("s*"), Ok(("", vec![Command::Show(Target::All)])));
+        assert_eq!(commands("update"), Ok(("", vec![Command::Update(ts.clone())])));
+        assert_eq!(commands("u*"), Ok(("", vec![Command::Update(ta.clone())])));
+        assert_eq!(commands("u*;"), Ok(("", vec![Command::Update(ta.clone())])));
+        assert_eq!(commands("u;"), Ok(("", vec![Command::Update(ts.clone())])));
+        assert_eq!(commands("delete"), Ok(("", vec![Command::Delete(ts.clone())])));
+        assert_eq!(commands("d*"), Ok(("", vec![Command::Delete(ta.clone())])));
+        assert_eq!(commands("filter-"), Ok(("", vec![Command::Filter(Filter::Failed)])));
+        assert_eq!(commands("f-"), Ok(("", vec![Command::Filter(Filter::Failed)])));
+        assert_eq!(commands("f+"), Ok(("", vec![Command::Filter(Filter::Passed)])));
+        assert_eq!(commands("f~"), Ok(("", vec![Command::Filter(Filter::Waiting)])));
         assert_eq!(
-            command("f#tag"),
-            Ok(("", Command::Filter(Filter::Tag(String::from("tag")))))
+            commands("f#tag"),
+            Ok(("", vec![Command::Filter(Filter::Tag(String::from("tag")))]))
         );
         assert_eq!(
-            command("f name"),
-            Ok(("", Command::Filter(Filter::Name(String::from("name")))))
+            commands("f name"),
+            Ok(("", vec![Command::Filter(Filter::Name(String::from("name")))]))
+        );
+        assert_eq!(commands("q;"), Ok(("", vec![Command::Quit])));
+        assert_eq!(commands("h; c"), Ok(("", vec![Command::Help, Command::Clear])));
+        assert_eq!(
+            commands("h; r * ; q;"),
+            Ok(("", vec![Command::Help, Command::Run(Target::All), Command::Quit]))
         );
 
         // Should return an error
-        assert_eq!(command("qt"), Err(Error::custom(ErrorKind::UnknownCommand)));
+        assert_eq!(commands("qt"), Err(Error::custom(ErrorKind::UnknownCommand)));
         assert_eq!(
-            command("quit *"),
+            commands("quit *"),
             Err(Error::custom(ErrorKind::TooManyArguments(Command::Quit)))
         );
         assert_eq!(
-            command("run * *"),
+            commands("run * *"),
             Err(Error::custom(ErrorKind::TooManyArguments(Command::Run(Target::All))))
         );
     }

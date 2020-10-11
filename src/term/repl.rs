@@ -24,6 +24,8 @@ pub struct Repl {
     cursor_pos: (u16, u16),
     height: u16,
     theme: Theme,
+    /// If suspended, the REPL should restore itself before display
+    suspended: bool,
 
     // Symbols
     waiting_symbol: String,
@@ -45,6 +47,7 @@ impl Repl {
             input,
             cursor_pos,
             height: 8 + 5,
+            suspended: false,
 
             // Symbols
             waiting_symbol: format!("{}~{}", color::Fg(color::LightBlue), color::Fg(color::Reset)),
@@ -66,11 +69,14 @@ impl Repl {
     /// Suspend REPL mode, stdout can be used normally until restored.
     /// The repl should not be use while suspended.
     pub fn suspend(&mut self) {
-        self.clear();
+        if !self.suspended {
+            self.clear();
+            self.suspended = true;
+        }
     }
 
     /// Restore REPL mode, the repl can be re-started safely.
-    pub fn restore(&mut self) {
+    fn restore(&mut self) {
         let (_, cursor_y) = self.stdout.cursor_pos().unwrap();
         let (_, term_height) = terminal_size().unwrap();
         // If the cursor reached the bottom, make some space
@@ -125,6 +131,7 @@ impl Repl {
                     self.checkpoint();
                     self.render(view);
                 }
+                Key::Ctrl('c') => return Input::Command(String::from("q")),
                 _ => (),
             }
         }
@@ -140,6 +147,10 @@ impl Repl {
 
     /// Displays the REPL.
     fn render(&mut self, view: &View) {
+        if self.suspended {
+            self.restore();
+            self.suspended = false;
+        }
         self.clear();
         self.display_description_box(view);
         let input_offset = self.display_input();
