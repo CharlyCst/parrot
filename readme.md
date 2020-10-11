@@ -20,8 +20,9 @@ This project is still under development, it may have rough corners and the inter
 ## Table of contents
 
 - [Installation](#installation)
-- [Principle](#principle)
 - [Usage](#usage)
+- [Principle](#principle)
+- [Commands](#commands)
   - [Quit](#quit-q)
   - [Help](#help-h)
   - [Filter](#filter-f)
@@ -75,11 +76,23 @@ From there you can navigate snapshots and execute commands.
 ### Principle
 
 A central feature of **parrot** is the ability to add tags to snapshots: each time you add snapshot you are asked for a name and a description, if you put hashtags in the descriptions (like `#this`) those can be use later to browse and run your snapshots.
-When working in the REPL, **parrot** maintains a **view** of your snapshots, you can modify that view with the `filter` and `clear` commands (see next section) to search by names, tags or even failing snapshots. By using tag wisely you can easily run only the part of your test set that correspond to what you are working on, or infer the issue by browsing tags of failing tests.
+While **parrot**  is running, it maintains a **view** of your snapshots. You can modify that view with the `filter` and `clear` commands (see next section) to search by names, tags or even failing snapshots. By using tag wisely you can easily run only the part of your test set that correspond to what you are working on, or infer the issue by browsing tags of failing tests.
 
-### Parrot commands
+## Commands
 
-In REPL mode you have access to a few commands to interact with your snapshots, most commands have a 1 letter shorthand version to help you get things done faster.
+You can interact with snapshots by using commands, either by executing them directly:
+
+```sh
+parrot exec 'f #demo; r*"
+```
+
+Or in the REPL (parrot's interactive shell):
+
+```sh
+parrot
+```
+
+Most commands have a 1 letter shorthand version to help you get things done faster. You can also execute multiple commands by separating them with semi-colons: `;`, this is especially handy with **parrot** `exec` subcommand.
 
 Here is the list of available commands and their descriptions:
 
