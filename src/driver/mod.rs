@@ -136,7 +136,6 @@ impl Context {
             Err(error) => {
                 repl.suspend();
                 repl.writeln(&error);
-                repl.restore();
                 Vec::new()
             }
         };
@@ -158,9 +157,7 @@ impl Context {
 
     /// Executes the help command.
     fn execute_help(&self, repl: &mut term::Repl) {
-        repl.suspend();
         term::help::write_help(&mut repl.stdout);
-        repl.restore();
     }
 
     /// Executes the edit command.
@@ -174,7 +171,6 @@ impl Context {
         } else {
             repl.writeln("No snapshot to edit.")
         }
-        repl.restore();
     }
 
     /// Executes the run command.
@@ -192,7 +188,6 @@ impl Context {
         } else {
             term::failure(&mut repl.stdout);
         }
-        repl.restore();
     }
 
     /// Executes the run command.
@@ -202,7 +197,6 @@ impl Context {
             Target::All => self.update_view(repl, view),
             Target::Selected => self.update_selected(repl, view),
         };
-        repl.restore();
     }
 
     /// Executes the show command.
@@ -219,7 +213,6 @@ impl Context {
                 }
             }
         }
-        repl.restore();
     }
 
     /// Executes the delete command.
@@ -249,7 +242,6 @@ impl Context {
         }
         self.data.gc_snapshots().unwrap_log();
         view.apply_filter(Filter::Deleted);
-        repl.restore();
     }
 
     /// Runs only commands from the given view.
