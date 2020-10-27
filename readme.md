@@ -1,5 +1,7 @@
 # Parrot 🦜
 
+[![crate.io](https://img.shields.io/crates/v/parrot-snap)](https://crates.io/crates/parrot-snap)
+
 A command-line snapshot testing tool for your scripts and CLI programs.
 
 <div align="center">
